@@ -1,5 +1,5 @@
-const User = require('./models/User');
 require('dotenv').config();
+const User = require('./models/User');
 
 // Create initial admin user
 async function createAdminUser() {
@@ -8,7 +8,7 @@ async function createAdminUser() {
     
     // Test Supabase connection
     const { supabase } = require('./config/supabase');
-    const { data, error } = await supabase.from('users').select('count(*)').limit(1);
+    const { data, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
     if (error) throw error;
     
     console.log('✅ Connected to Supabase successfully!');

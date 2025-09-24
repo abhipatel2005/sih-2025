@@ -1,6 +1,7 @@
 const express = require('express');
 const cron = require('node-cron');
 require('dotenv').config();
+const cors = require('cors');
 
 // Import Supabase config
 const { supabase } = require('./config/supabase');
@@ -18,7 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-// app.use(cors());
+app.use(cors());
 app.use(express.json());
 
 // Test Supabase connection
