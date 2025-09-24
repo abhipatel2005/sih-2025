@@ -1,21 +1,45 @@
 import { useState } from "react";
-import Modal from "./Modal";
-
+// import Modal from "./Modal";
+import { useEffect } from "react";
+import { supabase } from '../config/SupaBaseClient.js'
 function SchoolsPage() {
-    const [schools] = useState([
-        { name: "Govt Senior Secondary School, Ludhiana", area: "Ludhiana", students: 1200 },
-        { name: "Govt High School, Amritsar", area: "Amritsar", students: 950 },
-        { name: "Govt Girls Senior Secondary School, Patiala", area: "Patiala", students: 800 },
-        { name: "Govt Senior Secondary School, Jalandhar", area: "Jalandhar", students: 1100 },
-        { name: "Govt Primary School, Bathinda", area: "Bathinda", students: 450 },
-    ]);
+    const [schools, setSchools] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [totalSchools, setTotalSchools] = useState(0);
+    const pageSize = 6;
 
-    // State for Modal
-    // const [isModalOpen, setIsModalOpen] = useState(false);
-    // const handleAddSchool = (newSchool) => {
-    //     setSchools([...schools, newSchool]);
-    // };
-    // end State for Modal
+    useEffect(() => {
+        fetchSchools();
+    }, [page]);
+
+    const fetchSchools = async () => {
+        setLoading(true);
+
+        // Count total schools for pagination
+        const { count, error: countError } = await supabase
+            .from("schools")
+            .select("*", { count: "exact", head: true });
+
+        if (!countError) setTotalSchools(count);
+
+        // Fetch paginated data (name, address only)
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        const { data, error } = await supabase
+            .from("schools")
+            .select("id, name, address")
+            .range(from, to);
+
+        if (error) {
+            console.error("Error fetching schools:", error);
+        } else {
+            setSchools(data);
+        }
+
+        setLoading(false);
+    };
 
     return (
         <div className="min-h-screen bg-gray-100 p-10">
@@ -24,44 +48,56 @@ function SchoolsPage() {
                 <h1 className="text-2xl font-bold text-gray-800">
                     Registered Government Schools in Punjab
                 </h1>
-                
-                {/* add button if required */}
-                {/* <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                    + Add New School
-                </button> */}
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse bg-white shadow-md rounded-lg">
-                    <thead>
-                        <tr className="bg-green-600 text-white">
-                            <th className="px-6 py-3 text-left">School Name</th>
-                            <th className="px-6 py-3 text-left">Area</th>
-                            <th className="px-6 py-3 text-left">Students Registered</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {schools.map((school, index) => (
-                            <tr key={index} className="border-b hover:bg-gray-50">
-                                <td className="px-6 py-3">{school.name}</td>
-                                <td className="px-6 py-3">{school.area}</td>
-                                <td className="px-6 py-3">{school.students}</td>
+            {loading ? (
+                <p className="text-gray-500">Loading...</p>
+            ) : (
+                <div className="overflow-x-auto bg-white shadow-md rounded-lg">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-green-100">
+                            <tr>
+                                <th className="p-3 border-b">Name</th>
+                                <th className="p-3 border-b">Address</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {schools.map((school) => (
+                                <tr key={school.id} className="hover:bg-gray-50">
+                                    <td className="p-3 border-b">{school.name}</td>
+                                    <td className="p-3 border-b">{school.address}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-            {/* Modal */}
-            {/* <Modal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleAddSchool}
-            /> */}
+            {/* Pagination */}
+            <div className="flex justify-between items-center mt-6">
+                <button
+                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={page === 1}
+                    className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-300"
+                >
+                    Previous
+                </button>
+                <p className="text-gray-700">
+                    Page {page} of {Math.ceil(totalSchools / pageSize)}
+                </p>
+                <button
+                    onClick={() =>
+                        setPage((prev) =>
+                            prev < Math.ceil(totalSchools / pageSize) ? prev + 1 : prev
+                        )
+                    }
+                    disabled={page >= Math.ceil(totalSchools / pageSize)}
+                    className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-300"
+                >
+                    Next
+                </button>
+            </div>
         </div>
     );
 }

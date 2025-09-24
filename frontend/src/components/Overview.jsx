@@ -1,9 +1,41 @@
 import { useNavigate } from "react-router-dom";
 import Card from './Card'
 import FilterCard from "./FilterCard";
+import { supabase } from '../config/SupaBaseClient.js'
+import { useState, useEffect } from "react";
 
 function Overview() {
     const navigate = useNavigate();
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [totalSchools, setTotalSchools] = useState(0);
+
+    useEffect(() => {
+        fetchCounts();
+    })
+
+    const fetchCounts = async () => {
+        // Fetch Students Count
+        const { count: studentCount, error: studentError } = await supabase
+            .from("students")
+            .select("*", { count: "exact", head: true });
+
+        if (!studentError) {
+            setTotalStudents(studentCount);
+        } else {
+            console.error("Error fetching students count:", studentError);
+        }
+
+        // Fetch Schools Count
+        const { count: schoolCount, error: schoolError } = await supabase
+            .from("schools")
+            .select("*", { count: "exact", head: true });
+
+        if (!schoolError) {
+            setTotalSchools(schoolCount);
+        } else {
+            console.error("Error fetching schools count:", schoolError);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex flex-col items-center py-10">
@@ -18,11 +50,11 @@ function Overview() {
 
                 <Card
                     title="Total Students Registered"
-                    value="12,345"
+                    value={totalStudents}
                 />
 
                 <div onClick={() => navigate("/schools")} className="cursor-pointer">
-                    <Card title="Schools Registered" value="850" />
+                    <Card title="Schools Registered" value={totalSchools} />
                 </div>
 
             </div>
