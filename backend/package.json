@@ -1,0 +1,39 @@
+{
+  "name": "attendee-backend",
+  "version": "1.0.0",
+  "description": "MVP Attendance System Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node seed-data.js",
+    "create-admin": "node create-admin.js",
+    "setup": "npm run create-admin && npm run seed",
+    "migrate": "node migrate-attendance.js",
+    "migrate-sessions": "node migrate-to-sessions.js",
+    "auto-exit": "curl -X POST http://localhost:3000/attendance/auto-exit -H 'Content-Type: application/json' -H 'Authorization: Bearer YOUR_ADMIN_TOKEN'",
+    "test-entry-exit": "./test-entry-exit.sh"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.5.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "attendance",
+    "rfid",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT"
+}
