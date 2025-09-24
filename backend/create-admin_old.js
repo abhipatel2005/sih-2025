@@ -1,17 +1,19 @@
+const mongoose = require('mongoose');
 const User = require('./models/User');
 require('dotenv').config();
 
 // Create initial admin user
 async function createAdminUser() {
   try {
-    console.log('🔌 Connecting to Supabase...');
+    console.log('🔌 Connecting to MongoDB...');
     
-    // Test Supabase connection
-    const { supabase } = require('./config/supabase');
-    const { data, error } = await supabase.from('users').select('count(*)').limit(1);
-    if (error) throw error;
+    // Connect to MongoDB
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
     
-    console.log('✅ Connected to Supabase successfully!');
+    console.log('✅ Connected to MongoDB successfully!');
     
     // Check if admin user already exists
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@launchlog.com';
@@ -23,7 +25,7 @@ async function createAdminUser() {
       console.log(`   Name: ${existingAdmin.name}`);
       console.log(`   Email: ${existingAdmin.email}`);
       console.log(`   Role: ${existingAdmin.role}`);
-      console.log(`   RFID: ${existingAdmin.rfid_tag}`);
+      console.log(`   RFID: ${existingAdmin.rfidTag}`);
       console.log(`   Status: ${existingAdmin.status}`);
       return;
     }
@@ -47,7 +49,7 @@ async function createAdminUser() {
     console.log(`   Email: ${adminUser.email}`);
     console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'admin123456'}`);
     console.log(`   Role: ${adminUser.role}`);
-    console.log(`   RFID: ${adminUser.rfid_tag}`);
+    console.log(`   RFID: ${adminUser.rfidTag}`);
     console.log('==========================================');
     console.log('🔐 IMPORTANT: Change the admin password after first login!');
     console.log('📱 You can now use these credentials to:');
@@ -58,17 +60,14 @@ async function createAdminUser() {
   } catch (error) {
     console.error('❌ Error creating admin user:', error.message);
     
-    if (error.code === '23505') {
-      console.error('💡 Email or RFID already exists. Please check your configuration.');
-    } else {
-      console.error('💡 Please ensure:');
-      console.error('   1. SUPABASE_URL is set correctly in your .env file');
-      console.error('   2. SUPABASE_SERVICE_ROLE_KEY is set correctly in your .env file');
-      console.error('   3. The users table exists in your Supabase database');
-      console.error('   4. Run the schema.sql file in your Supabase database first');
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      console.error(`💡 ${field} already exists. Please check your configuration.`);
     }
   } finally {
-    console.log('\n🔌 Setup complete');
+    // Close the connection
+    await mongoose.connection.close();
+    console.log('\n🔌 Database connection closed');
     process.exit(0);
   }
 }

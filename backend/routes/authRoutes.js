@@ -32,7 +32,7 @@ router.post('/register', authMiddleware, adminMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    const existingUserByRfid = await User.findOne({ rfidTag });
+    const existingUserByRfid = await User.findByRfidTag(rfidTag);
     if (existingUserByRfid) {
       return res.status(400).json({ error: 'User with this RFID tag already exists' });
     }
@@ -55,7 +55,7 @@ router.post('/register', authMiddleware, adminMiddleware, async (req, res) => {
     await user.save();
 
     // Generate token
-    const token = generateToken(user._id, user.role);
+    const token = generateToken(user.id, user.role);
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -103,7 +103,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate token
-    const token = generateToken(user._id, user.role);
+    const token = generateToken(user.id, user.role);
 
     res.json({
       message: 'Login successful',

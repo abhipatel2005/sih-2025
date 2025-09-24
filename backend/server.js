@@ -1,8 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
-// const cors = require('cors');
 const cron = require('node-cron');
 require('dotenv').config();
+
+// Import Supabase config
+const { supabase } = require('./config/supabase');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -20,15 +21,20 @@ const PORT = process.env.PORT || 3000;
 // app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/attendance', {})
-.then(() => {
-  console.log('✅ Connected to MongoDB');
-})
-.catch(err => {
-  console.error('❌ MongoDB connection error:', err);
-  process.exit(1);
-});
+// Test Supabase connection
+const testSupabaseConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('users').select('*').limit(1);
+    if (error) throw error;
+    console.log('✅ Connected to Supabase');
+  } catch (err) {
+    console.error('❌ Supabase connection error:', err);
+    process.exit(1);
+  }
+};
+
+// Initialize connection
+testSupabaseConnection();
 
 // Use routes
 app.use('/auth', authRoutes);
@@ -98,18 +104,35 @@ app.get('/', (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   
+  // Handle Supabase errors
+  if (err.code) {
+    // Supabase PostgreSQL error codes
+    if (err.code === '23505') { // Unique constraint violation
+      const detail = err.details || '';
+      let field = 'field';
+      if (detail.includes('email')) field = 'email';
+      if (detail.includes('rfid_tag')) field = 'RFID tag';
+      return res.status(400).json({ error: `Duplicate ${field}` });
+    }
+    
+    if (err.code === '23502') { // Not null constraint violation
+      return res.status(400).json({ error: 'Missing required field' });
+    }
+    
+    if (err.code === '23514') { // Check constraint violation
+      return res.status(400).json({ error: 'Invalid field value' });
+    }
+  }
+  
+  // Handle validation errors (custom)
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
     return res.status(400).json({ error: 'Validation Error', details: errors });
   }
   
-  if (err.name === 'CastError') {
+  // Handle invalid UUID format
+  if (err.message && err.message.includes('invalid input syntax for type uuid')) {
     return res.status(400).json({ error: 'Invalid ID format' });
-  }
-  
-  if (err.code === 11000) {
-    const field = Object.keys(err.keyPattern)[0];
-    return res.status(400).json({ error: `Duplicate ${field}` });
   }
   
   res.status(500).json({ error: 'Internal server error' });
