@@ -135,7 +135,8 @@
 // Include configuration and utilities
 #include "config.h"
 #include "utils.h"
-
+#include "display_utils.h"
+// #include
 // Web server for configuration endpoints
 ESP8266WebServer configServer(80);
 
@@ -579,6 +580,11 @@ bool initializeHardware() {
   setLCDState(LCD_INITIALIZING);
   Serial.println("LCD initialized");
   
+  // Initialize OLED
+  initializeOLED();
+  showLoadingScreen("Starting...", 0);
+  Serial.println("OLED initialized");
+  
   // Initialize RTC
   if (!rtc.begin()) {
     Serial.println("RTC initialization failed!");
@@ -699,6 +705,8 @@ void checkWiFiConnection() {
     Serial.println("WiFi reconnected");
     syncTimeWithNTP();
     setLEDState(LED_GREEN);
+    showWiFiStatus(true);
+    delay(1000);
     logInfo("WiFi reconnected - IP: " + WiFi.localIP().toString());
     // Ensure config server is started on first connection
     if (!configServerStarted) {
@@ -720,6 +728,7 @@ void checkWiFiConnection() {
 // ========================================
 
 void handleRFIDScan() {
+  Serial.println("herher");
   // Check for new card with improved error handling
   if (!mfrc522.PICC_IsNewCardPresent()) {
     return;
@@ -766,11 +775,16 @@ void handleRFIDScan() {
   playCardDetectedBeep();               // Instant audio feedback
   setLEDState(LED_BLINK_GREEN);         // Quick green blink to show card detected
   
-  // Show immediate "Card Detected" feedback on LCD
+  // Show immediate "Card Detected" feedback on LCD and OLED
   lastScannedName = "Card Detected";
   lastScannedTime = getCurrentTimestamp().substring(11, 16);
   lastScannedMessage = "Processing...";
   updateDisplay();
+  
+  // Show card detection animation on OLED
+  showCardScanScreen("Card Detected");
+  delay(500);
+  showLoadingScreen("Processing...", 50);
   
   // Brief pause to separate stage 1 from stage 2
   delay(200);
@@ -1011,10 +1025,14 @@ void handleBadRequestAttendance(String response) {
 
 void processOfflineAttendance(String rfidTag, String timestamp) {
   // ===== STAGE 2: PROCESSING INDICATION FOR OFFLINE =====
-  // Update LCD to show "Storing offline..." 
+  // Update LCD and OLED to show "Storing offline..." 
   lastScannedName = "Offline Mode";
   lastScannedMessage = "Storing...";
   updateDisplay();
+  
+  // Show offline storage animation on OLED
+  showLoadingScreen("Storing Offline...", 50);
+  delay(500);
   
   playProcessingBeep(); // Same processing sound as online
   delay(100); // Brief processing delay for visual feedback
