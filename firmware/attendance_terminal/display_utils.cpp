@@ -1,12 +1,9 @@
 #include "display_utils.h"
 #include <math.h>
 
-Adafruit_SSD1306 oledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 // Screen Transitions
 void transitionSlideLeft() {
-    uint8_t buffer[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
-    oledDisplay.getBuffer(buffer);
+    uint8_t* buffer = oledDisplay.getBuffer();
     
     for(int offset = 0; offset <= SCREEN_WIDTH; offset += 8) {
         oledDisplay.clearDisplay();
@@ -23,8 +20,7 @@ void transitionSlideLeft() {
 }
 
 void transitionSlideRight() {
-    uint8_t buffer[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
-    oledDisplay.getBuffer(buffer);
+    uint8_t* buffer = oledDisplay.getBuffer();
     
     for(int offset = 0; offset <= SCREEN_WIDTH; offset += 8) {
         oledDisplay.clearDisplay();
@@ -43,13 +39,13 @@ void transitionSlideRight() {
 void transitionFade() {
     for(int i = 255; i >= 0; i -= 5) {
         oledDisplay.dim(true);
-        oledDisplay.setContrast(i);
+        // Note: setContrast is not available in newer Adafruit_SSD1306 library
+        // Using dim() instead for fade effect
         oledDisplay.display();
         delay(TRANSITION_DELAY/4);
     }
     oledDisplay.clearDisplay();
     for(int i = 0; i <= 255; i += 5) {
-        oledDisplay.setContrast(i);
         oledDisplay.display();
         delay(TRANSITION_DELAY/4);
     }
@@ -57,9 +53,29 @@ void transitionFade() {
 }
 
 void transitionZoom() {
-    uint8_t buffer[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
-    oledDisplay.getBuffer(buffer);
+    uint8_t* buffer = oledDisplay.getBuffer();
     
+    const int centerX = SCREEN_WIDTH/2;
+    const int centerY = SCREEN_HEIGHT/2;
+    
+    for(int i = 0; i < 32; i++) {
+        oledDisplay.clearDisplay();
+        int size = 32 - i;
+        
+        // Draw zooming rectangle effect
+        for(int x = centerX - size; x < centerX + size && x < SCREEN_WIDTH; x++) {
+            for(int y = centerY - size/2; y < centerY + size/2 && y < SCREEN_HEIGHT; y++) {
+                if(x >= 0 && y >= 0) {
+                    oledDisplay.drawPixel(x, y, SSD1306_WHITE);
+                }
+            }
+        }
+        
+        oledDisplay.display();
+        delay(TRANSITION_DELAY/2);
+    }
+    
+    // Second phase: zoom out effect using buffer scaling
     for(int scale = 100; scale >= 50; scale -= 5) {
         oledDisplay.clearDisplay();
         float s = scale/100.0;
@@ -77,6 +93,7 @@ void transitionZoom() {
         oledDisplay.display();
         delay(TRANSITION_DELAY);
     }
+    
     oledDisplay.clearDisplay();
     oledDisplay.display();
 }
@@ -330,9 +347,8 @@ void animatePowerOn() {
         oledDisplay.clearDisplay();
         oledDisplay.drawCircle(64, 32, 32, SSD1306_WHITE);
         oledDisplay.drawLine(64, 12, 64, 32, SSD1306_WHITE);
-        float brightness = (15-i)/15.0;
-        oledDisplay.dim(true);
-        oledDisplay.setContrast(brightness * 255);
+        // Note: Using dim() instead of setContrast for compatibility
+        oledDisplay.dim(i > 8);
         oledDisplay.display();
         delay(FRAME_DELAY/2);
     }
@@ -343,9 +359,8 @@ void animatePowerOff() {
         oledDisplay.clearDisplay();
         oledDisplay.drawCircle(64, 32, 32, SSD1306_WHITE);
         oledDisplay.drawLine(64, 12, 64, 32, SSD1306_WHITE);
-        float brightness = i/15.0;
-        oledDisplay.dim(true);
-        oledDisplay.setContrast((1-brightness) * 255);
+        // Note: Using dim() instead of setContrast for compatibility
+        oledDisplay.dim(i < 8);
         oledDisplay.display();
         delay(FRAME_DELAY/2);
     }

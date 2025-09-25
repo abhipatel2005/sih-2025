@@ -98,4 +98,11 @@ void transitionSlideRight();
 void transitionFade();
 void transitionZoom();
 
+// Extended Animation Functions
+void animateCardSwipeExtended();
+void animateHeartbeatExtended();
+void drawHeartExtended(int x, int y, int size);
+void animateSyncExtended();
+void drawArrowheadExtended(int x1, int y1, int x2, int y2);
+
 #endif

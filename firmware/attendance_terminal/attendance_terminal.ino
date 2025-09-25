@@ -120,6 +120,8 @@
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <MFRC522v2.h>
 #include <MFRC522DriverSPI.h>
 #include <MFRC522DriverPinSimple.h>
@@ -209,6 +211,7 @@ MFRC522 mfrc522(driver);
 // Other hardware objects
 LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLS, LCD_ROWS);
 RTC_DS3231 rtc;
+Adafruit_SSD1306 oledDisplay(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 WiFiClient wifiClient;        // For HTTP connections
 WiFiClientSecure wifiClientSecure;  // For HTTPS connections
 HTTPClient http;
@@ -970,25 +973,37 @@ void handleSuccessfulAttendance(String response, String timestamp) {
       lastScannedMessage = "Entry logged";
       setLEDState(LED_GREEN);
       playSuccessBeep();
+      showSuccessScreen("Entry Logged");
+      animateSuccess();
+      delay(2000);  // Show success message for 2 seconds
       logInfo("Entry: " + userName);
     } else if (attendanceType == "exit") {
       lastScannedMessage = "Exit logged";
       setLEDState(LED_GREEN);
       playSuccessBeep();
+      showSuccessScreen("Exit Logged");
+      animateSuccess();
+      delay(2000);  // Show success message for 2 seconds
       logInfo("Exit: " + userName);
     } else if (attendanceType == "complete") {
       lastScannedMessage = "Already logged";
       setLEDState(LED_YELLOW);
       playDuplicateBeep();      // Use specific duplicate beep pattern
+      showInfoScreen("Already Complete", "Logged today");
+      delay(2000);  // Show already complete message for 2 seconds
       logInfo("Already complete: " + userName);
     } else {
       lastScannedMessage = "Attendance OK";
       setLEDState(LED_GREEN);
       playSuccessBeep();
+      showSuccessScreen("Attendance OK");
+      animateSuccess();
+      delay(2000);  // Show success message for 2 seconds
       logInfo("Attendance: " + userName);
     }
     
     ledBlinkTimer = millis();
+    updateDisplay();  // Update OLED display with success message
   } else {
     handleAttendanceError("Unknown response format");
   }
@@ -1018,6 +1033,9 @@ void handleBadRequestAttendance(String response) {
     setLEDState(LED_YELLOW);
     ledBlinkTimer = millis();
     playDuplicateBeep();        // Use specific duplicate beep pattern
+    showInfoScreen("Already Complete", "Logged today");
+    delay(2000);  // Show already complete message for 2 seconds
+    updateDisplay();  // Update OLED display with duplicate message
   } else {
     handleAttendanceError(errorMsg);
   }
@@ -1067,6 +1085,9 @@ void processOfflineAttendance(String rfidTag, String timestamp) {
     setLEDState(LED_YELLOW);
     ledBlinkTimer = millis();
     playOfflineBeep();
+    showInfoScreen("Offline Mode", "Stored locally");
+    delay(2000);  // Show offline success message for 2 seconds
+    updateDisplay();  // Update OLED display with offline success message
     
     logInfo("Stored offline: " + rfidTag);
   } else {
@@ -1091,6 +1112,10 @@ void handleAttendanceError(String error) {
   }
   
   logError("Attendance error: " + error);
+  showErrorScreen(error.c_str());
+  animateError();
+  delay(3000);  // Show error message for 3 seconds
+  updateDisplay();  // Update OLED display with error message
 }
 
 // ========================================
@@ -2305,6 +2330,6 @@ void warmupHTTPSConnection() {
   } else {
     Serial.println("HTTPS warmup connection failed");
   }
-  }
-  
+}
+
 
