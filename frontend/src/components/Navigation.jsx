@@ -27,7 +27,8 @@ const Navigation = () => {
   const navigationGroups = {
     primary: [
       { to: '/dashboard', label: 'Dashboard' },
-      { to: '/attendance', label: 'Attendance', adminOnly: true }
+      { to: '/attendance', label: 'Attendance', adminOnly: true },
+      { to: '/analytics', label: 'Analytics', adminOnly: true }
     ],
     management: [
       { to: '/members', label: 'Members', adminOnly: true },
@@ -337,7 +338,7 @@ const Navigation = () => {
                 <div className="border-t border-gray-200 mt-2 pt-2">
                   <div className="px-6 py-3 text-xs text-gray-500">
                     <div className="font-semibold text-gray-600">{user?.name}</div>
-                    <div className="text-xs text-gray-500 tracking-wider uppercase capitalize">{user?.role}</div>
+                    <div className="text-xs text-gray-500 tracking-wider capitalize">{user?.role}</div>
                   </div>
                   
                   <button

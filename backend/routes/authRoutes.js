@@ -170,6 +170,50 @@ router.post('/change-password', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /auth/forgot-password - Send password to email
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate email
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Find user by email
+    const user = await User.findByEmail(email);
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ message: 'If an account with this email exists, you will receive a password shortly.' });
+    }
+
+    // Generate a new temporary password
+    const crypto = require('crypto');
+    const newPassword = crypto.randomBytes(4).toString('hex').toUpperCase(); // 8 character password
+    
+    // Update user password
+    user.password = newPassword;
+    await user.save();
+
+    // Send password email
+    const emailService = require('../services/emailService');
+    const emailResult = await emailService.sendPasswordEmail(user.email, user.name, newPassword);
+
+    if (emailResult.success) {
+      console.log(`Password reset email sent to: ${user.email}`);
+      res.json({ message: 'If an account with this email exists, you will receive a password shortly.' });
+    } else {
+      console.error('Failed to send password email:', emailResult.error);
+      // Still return success message for security
+      res.json({ message: 'If an account with this email exists, you will receive a password shortly.' });
+    }
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Server error during password reset' });
+  }
+});
+
 // POST /auth/logout - Logout (client-side token removal)
 router.post('/logout', authMiddleware, (req, res) => {
   res.json({ message: 'Logout successful. Please remove the token from client storage.' });

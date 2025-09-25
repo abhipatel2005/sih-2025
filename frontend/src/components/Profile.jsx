@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { userAPI, attendanceAPI } from '../api';
+import { supabase } from '../config/SupaBaseClient';
 import { formatDateIST, formatTimeIST } from '../utils/dateUtils';
 
 const Profile = () => {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const { success, error: showError } = useToast();
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -14,67 +14,131 @@ const Profile = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     phone: '',
     profilePicture: '',
-    skills: '',
-    bio: '',
     password: '',
     confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await userAPI.getMyProfile();
-      const userData = response.data.user;
-      setProfile(userData);
+      
+      // Fetch admin user data directly from Supabase
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', 'admin@gmail.com')
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error('Admin user not found. Please ensure admin@gmail.com exists in the database.');
+        }
+        throw error;
+      }
+
+      // Transform data to match the expected format
+      const transformedData = {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        profilePicture: userData.profile_picture,
+        rfidTag: userData.rfid_tag,
+        role: userData.role,
+        status: userData.status,
+        joinedDate: userData.joined_date,
+        skills: userData.skills || [],
+        bio: userData.bio,
+        createdAt: userData.created_at,
+        updatedAt: userData.updated_at
+      };
+      
+      setProfile(transformedData);
       
       // Initialize form data
       setFormData({
-        email: userData.email || '',
-        phone: userData.phone || '',
-        profilePicture: userData.profilePicture || '',
-        skills: userData.skills ? userData.skills.join(', ') : '',
-        bio: userData.bio || '',
+        name: transformedData.name || '',
+        email: transformedData.email || '',
+        phone: transformedData.phone || '',
+        profilePicture: transformedData.profilePicture || '',
         password: '',
         confirmPassword: ''
       });
       
     } catch (err) {
       console.error('Error fetching profile:', err);
-      showError('Failed to load profile data');
+      showError(`Failed to load profile data: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showError]);
 
-  const fetchAttendanceHistory = async () => {
+  const fetchAttendanceHistory = useCallback(async (userId) => {
     try {
       setAttendanceLoading(true);
-      // Get last 10 attendance records
-      const response = await attendanceAPI.getMyAttendance({ limit: 10 });
-      setAttendanceData(response.data.attendance || []);
+      
+      // Get last 10 attendance records for the admin user
+      const { data: attendanceData, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        throw error;
+      }
+
+      // Transform data to match the expected format
+      const transformedAttendance = attendanceData.map(record => ({
+        _id: record.id,
+        id: record.id,
+        user_id: record.user_id,
+        date: record.date,
+        sessions: record.sessions || [],
+        entryTime: record.entry_time,
+        exitTime: record.exit_time,
+        timestamp: record.timestamp,
+        createdAt: record.created_at,
+        updatedAt: record.updated_at
+      }));
+
+      setAttendanceData(transformedAttendance);
     } catch (err) {
       console.error('Error fetching attendance history:', err);
-      showError('Failed to load attendance history');
+      showError(`Failed to load attendance history: ${err.message}`);
     } finally {
       setAttendanceLoading(false);
     }
-  };
+  }, [showError]);
 
   useEffect(() => {
     fetchProfile();
-    fetchAttendanceHistory();
-  }, []);
+  }, [fetchProfile]);
+
+  // Fetch attendance when profile is loaded
+  useEffect(() => {
+    if (profile?.id) {
+      fetchAttendanceHistory(profile.id);
+    }
+  }, [profile?.id, fetchAttendanceHistory]);
 
   const validateForm = () => {
     const newErrors = {};
 
+    // Name validation
+    if (!formData.name || formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters long';
+    }
+
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
+    if (!formData.email || !emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -128,22 +192,58 @@ const Profile = () => {
     try {
       setUpdating(true);
       
-      // Prepare update data
+      // Prepare update data for Supabase (convert camelCase to snake_case)
       const updateData = {
-        email: formData.email,
-        phone: formData.phone,
-        profilePicture: formData.profilePicture,
-        skills: formData.skills ? formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill) : [],
-        bio: formData.bio
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone ? formData.phone.trim() : null,
+        profile_picture: formData.profilePicture ? formData.profilePicture.trim() : '',
+        updated_at: new Date().toISOString()
       };
 
-      // Add password if provided
-      if (formData.password) {
-        updateData.password = formData.password;
+      // Add password if provided (Note: In production, you should hash passwords before storing)
+      if (formData.password && formData.password.trim()) {
+        updateData.password = formData.password.trim();
       }
 
-      const response = await userAPI.updateMyProfile(updateData);
-      const updatedProfile = response.data.user;
+      // Update the admin user in Supabase
+      const { data: updatedUserData, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('email', 'admin@gmail.com')
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new Error('Admin user not found during update. Please check if the user exists.');
+        }
+        if (error.code === '23505') {
+          throw new Error('Email address is already in use by another user.');
+        }
+        throw error;
+      }
+
+      if (!updatedUserData) {
+        throw new Error('Failed to update profile. No data returned.');
+      }
+
+      // Transform updated data back to expected format
+      const updatedProfile = {
+        id: updatedUserData.id,
+        name: updatedUserData.name,
+        email: updatedUserData.email,
+        phone: updatedUserData.phone,
+        profilePicture: updatedUserData.profile_picture,
+        rfidTag: updatedUserData.rfid_tag,
+        role: updatedUserData.role,
+        status: updatedUserData.status,
+        joinedDate: updatedUserData.joined_date,
+        skills: updatedUserData.skills || [],
+        bio: updatedUserData.bio,
+        createdAt: updatedUserData.created_at,
+        updatedAt: updatedUserData.updated_at
+      };
       
       setProfile(updatedProfile);
       setIsEditing(false);
@@ -153,9 +253,13 @@ const Profile = () => {
         updateUser(updatedProfile);
       }
       
-      // Clear password fields
+      // Update form data with the new values and clear password fields
       setFormData(prev => ({
         ...prev,
+        name: updatedProfile.name || '',
+        email: updatedProfile.email || '',
+        phone: updatedProfile.phone || '',
+        profilePicture: updatedProfile.profilePicture || '',
         password: '',
         confirmPassword: ''
       }));
@@ -164,7 +268,7 @@ const Profile = () => {
       
     } catch (err) {
       console.error('Error updating profile:', err);
-      showError(err.response?.data?.error || 'Failed to update profile');
+      showError(err.message || err.details || 'Failed to update profile');
     } finally {
       setUpdating(false);
     }
@@ -176,11 +280,10 @@ const Profile = () => {
     
     // Reset form data to original profile values
     setFormData({
+      name: profile.name || '',
       email: profile.email || '',
       phone: profile.phone || '',
       profilePicture: profile.profilePicture || '',
-      skills: profile.skills ? profile.skills.join(', ') : '',
-      bio: profile.bio || '',
       password: '',
       confirmPassword: ''
     });
@@ -281,6 +384,33 @@ const Profile = () => {
               </div>
             </div>
 
+            {/* Basic Information */}
+            <div className="bg-white border border-gray-100 p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
+                Basic Information
+              </h2>
+              
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    required
+                    placeholder="Enter your full name"
+                  />
+                  {errors.name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Contact Information */}
             <div className="bg-white border border-gray-100 p-4 sm:p-6">
               <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
@@ -320,43 +450,6 @@ const Profile = () => {
                   {errors.phone && (
                     <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
                   )}
-                </div>
-              </div>
-            </div>
-
-            {/* Professional Information */}
-            <div className="bg-white border border-gray-100 p-4 sm:p-6">
-              <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
-                Professional Information
-              </h2>
-              
-              <div className="space-y-4 sm:space-y-6">
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
-                    Skills (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    name="skills"
-                    value={formData.skills}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
-                    placeholder="JavaScript, React, Node.js, MongoDB"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
-                    Bio
-                  </label>
-                  <textarea
-                    name="bio"
-                    value={formData.bio}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
-                    placeholder="Tell us about yourself..."
-                  />
                 </div>
               </div>
             </div>
@@ -475,44 +568,6 @@ const Profile = () => {
                     Phone Number
                   </label>
                   <p className="text-sm text-black">{profile?.phone || 'Not provided'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Professional Information */}
-            <div className="bg-white border border-gray-100 p-6">
-              <h2 className="text-lg font-medium text-black tracking-tight mb-6">
-                Professional Information
-              </h2>
-              
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
-                    Skills
-                  </label>
-                  {profile?.skills && profile.skills.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {profile.skills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="bg-gray-100 text-gray-800 px-3 py-1 text-xs font-medium"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No skills added yet</p>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
-                    Bio
-                  </label>
-                  <p className="text-sm text-black whitespace-pre-wrap">
-                    {profile?.bio || 'No bio added yet'}
-                  </p>
                 </div>
               </div>
             </div>

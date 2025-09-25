@@ -14,8 +14,10 @@ import UserDetail from './components/UserDetail';
 import Signup from './components/Signup';
 import SystemStatus from './components/SystemStatus';
 import DeviceAdmin from './components/DeviceAdmin';
+import Analytics from './components/AnalyticsWorking';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import ForgotPassword from './components/ForgetPassword';
 
 function App() {
   return (
@@ -52,6 +54,15 @@ function App() {
                 element={
                   <ProtectedRoute adminOnly={true}>
                     <Attendance />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <Analytics />
                   </ProtectedRoute>
                 } 
               />
@@ -138,6 +149,9 @@ function App() {
                   </div>
                 } 
               />
+
+              {/* Forgot Password page */}
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Routes>
           </div>
         </ToastProvider>
