@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authAPI } from '../api';
+import { authAPI, schoolAPI } from '../api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,11 +15,41 @@ const Signup = () => {
     password: '',
     confirmPassword: '',
     rfidTag: '',
-    role: 'member',
+    role: 'student',
     phone: '',
+    category: '',
+    gender: '',
+    std: '',
+    dob: '',
+    address: '',
+    bloodGroup: '',
+    aadharId: '',
+    schoolId: '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [schools, setSchools] = useState([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(false);
+
+  // Fetch schools for dropdown
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        setSchoolsLoading(true);
+        const response = await schoolAPI.getSchools();
+        setSchools(response.data.schools || []);
+      } catch (err) {
+        console.error('Error fetching schools:', err);
+        showError('Failed to load schools');
+      } finally {
+        setSchoolsLoading(false);
+      }
+    };
+
+    if (user?.role === 'admin') {
+      fetchSchools();
+    }
+  }, [user, showError]);
 
   // Redirect if not admin
   React.useEffect(() => {
@@ -46,6 +76,7 @@ const Signup = () => {
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     if (!formData.confirmPassword.trim()) newErrors.confirmPassword = 'Confirm password is required';
     if (!formData.rfidTag.trim()) newErrors.rfidTag = 'RFID tag is required';
+    if (!formData.schoolId.trim()) newErrors.schoolId = 'School is required';
     
     // Email validation
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
@@ -77,7 +108,26 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { confirmPassword, ...submitData } = formData;
+      const { confirmPassword, ...data } = formData;
+      
+      // Map frontend field names to backend schema field names
+      const submitData = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        rfidTag: data.rfidTag,
+        role: data.role,
+        phone: data.phone,
+        category: data.category,
+        gender: data.gender,
+        std: data.std,
+        dob: data.dob,
+        address: data.address,
+        blood_group: data.bloodGroup,
+        aadhar_id: data.aadharId,
+        school_id: data.schoolId,
+      };
+      
       await authAPI.register(submitData);
       
       success(`${formData.name} has been registered successfully`);
@@ -236,10 +286,145 @@ const Signup = () => {
               disabled={loading}
               className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
             >
-              <option value="member">Member</option>
-              <option value="mentor">Mentor</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="principal">Principal</option>
               <option value="admin">Admin</option>
             </select>
+          </div>
+
+          {/* School Selection */}
+          <div>
+            <select
+              name="schoolId"
+              value={formData.schoolId}
+              onChange={handleChange}
+              disabled={loading || schoolsLoading}
+              className={`w-full border-0 border-b bg-transparent py-4 text-sm focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50 ${
+                errors.schoolId ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-black'
+              }`}
+            >
+              <option value="">Select School</option>
+              {schools.map((school) => (
+                <option key={school.school_id} value={school.school_id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+            {errors.schoolId && (
+              <p className="mt-2 text-xs text-red-500">{errors.schoolId}</p>
+            )}
+          </div>
+
+          {/* Date of Birth */}
+          <div>
+            <input
+              type="date"
+              name="dob"
+              value={formData.dob}
+              onChange={handleChange}
+              disabled={loading}
+              placeholder="Date of Birth"
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            />
+          </div>
+
+          {/* Gender */}
+          <div>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Category */}
+          <div>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Category</option>
+              <option value="general">General</option>
+              <option value="obc">OBC</option>
+              <option value="sc">SC</option>
+              <option value="st">ST</option>
+              <option value="ews">EWS</option>
+            </select>
+          </div>
+
+          {/* Standard/Class (for students) */}
+          {formData.role === 'student' && (
+            <div>
+              <input
+                type="text"
+                name="std"
+                placeholder="Class/Standard (e.g., 10th, 12th)"
+                value={formData.std}
+                onChange={handleChange}
+                disabled={loading}
+                className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+              />
+            </div>
+          )}
+
+          {/* Blood Group */}
+          <div>
+            <select
+              name="bloodGroup"
+              value={formData.bloodGroup}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Blood Group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          {/* Aadhar ID */}
+          <div>
+            <input
+              type="text"
+              name="aadharId"
+              placeholder="Aadhar ID (12 digits)"
+              value={formData.aadharId}
+              onChange={handleChange}
+              disabled={loading}
+              maxLength="12"
+              pattern="[0-9]{12}"
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            />
+          </div>
+
+          {/* Address */}
+          <div>
+            <input
+              type="text"
+              name="address"
+              placeholder="Address"
+              value={formData.address}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            />
           </div>
 
           {/* Buttons */}

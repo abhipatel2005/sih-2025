@@ -31,21 +31,23 @@ const ManualAttendance = () => {
   // Check if user can record attendance manually (teacher only)
   const canRecordAttendance = user?.role === 'teacher';
   
-  // Check if user is admin/principal (should be redirected to full attendance management)
+  // Check if user is admin/principal (should be redirected to attendance management)
   const isAdminOrPrincipal = user?.role === 'admin' || user?.role === 'principal';
 
   // Fetch users for selection (students only for teachers)
   const fetchUsers = async () => {
     setUsersLoading(true);
     try {
-      // Teachers use the dedicated students endpoint
-      const response = await userAPI.getStudents();
-      const students = response.data.users || response.data || [];
+      const response = await userAPI.getUsers({ status: 'active' });
+      const activeUsers = response.data.users || response.data || [];
       
-      setUsers(students);
-      setFilteredUsers(students);
+      // For teachers, only show students
+      const filteredUsers = activeUsers.filter(userItem => userItem.role === 'student');
+      
+      setUsers(filteredUsers);
+      setFilteredUsers(filteredUsers);
     } catch (err) {
-      console.error('Error fetching students:', err);
+      console.error('Error fetching users:', err);
       showError('Failed to load students');
     } finally {
       setUsersLoading(false);
@@ -105,7 +107,7 @@ const ManualAttendance = () => {
   // Redirect if not authorized
   useEffect(() => {
     if (user && isAdminOrPrincipal) {
-      // Redirect admins and principals to attendance management dashboard
+      // Redirect admins and principals to attendance management
       navigate('/attendance');
     } else if (user && !canRecordAttendance) {
       // Redirect other users to regular attendance view
@@ -249,17 +251,15 @@ const ManualAttendance = () => {
         <div className="text-center">
           <h1 className="text-xl font-medium text-black mb-4">Teacher Access Only</h1>
           <p className="text-sm text-gray-500 mb-6">
-            Manual attendance entry is available for teachers only. 
+            Manual attendance entry is available for teachers only.
             {isAdminOrPrincipal ? ' Admins and principals have access to full attendance management.' : ''}
           </p>
-          <div className="space-y-4">
-            <Link
-              to="/attendance"
-              className="inline-block text-xs text-blue-600 tracking-wider uppercase hover:text-blue-800 transition-colors duration-200"
-            >
-              {isAdminOrPrincipal ? 'Go to Attendance Dashboard' : 'Back to Attendance'}
-            </Link>
-          </div>
+          <Link
+            to="/attendance"
+            className="text-xs text-blue-600 tracking-wider uppercase hover:text-blue-800 transition-colors duration-200"
+          >
+            {isAdminOrPrincipal ? 'Go to Attendance Dashboard' : 'Back to Attendance'}
+          </Link>
         </div>
       </div>
     );

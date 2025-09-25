@@ -34,7 +34,18 @@ const AttendanceHistory = () => {
       };
       
       const response = await attendanceAPI.getAttendanceHistory(params);
-      setAttendanceData(response.data.attendance || response.data);
+      
+      // Handle different response structures
+      let attendanceRecords;
+      if (response.data.attendance) {
+        attendanceRecords = response.data.attendance;
+      } else if (Array.isArray(response.data)) {
+        attendanceRecords = response.data;
+      } else {
+        attendanceRecords = response.data || [];
+      }
+      
+      setAttendanceData(attendanceRecords);
     } catch (err) {
       console.error('Error fetching attendance history:', err);
       setError(err.response?.data?.error || 'Failed to fetch attendance history');
@@ -82,12 +93,12 @@ const AttendanceHistory = () => {
     } else {
       const filtered = attendanceData.filter(record => {
         // Handle different data structures:
-        // 1. History API: userName, userEmail, userRfidTag
-        // 2. Today API: name, email, rfidTag 
+        // 1. History API with JOIN: record.users.name, record.users.email, record.users.rfid_tag
+        // 2. Today API: userName, userEmail, userRfidTag 
         // 3. Legacy: userId.name, userId.email, userId.rfidTag
-        const userName = record.userName || record.name || record.userId?.name || '';
-        const userEmail = record.userEmail || record.email || record.userId?.email || '';
-        const userRfid = record.userRfidTag || record.rfidTag || record.userId?.rfidTag || '';
+        const userName = record.users?.name || record.userName || record.name || record.userId?.name || '';
+        const userEmail = record.users?.email || record.userEmail || record.email || record.userId?.email || '';
+        const userRfid = record.users?.rfid_tag || record.userRfidTag || record.rfidTag || record.userId?.rfidTag || '';
         
         return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -119,8 +130,8 @@ const AttendanceHistory = () => {
     return formatTimeIST(dateString);
   };
 
-  // Check if user can delete records (admin or mentor)
-  const canDeleteRecords = user?.role === 'admin' || user?.role === 'mentor';
+  // Check if user can delete records (admin, principal, or teacher)
+  const canDeleteRecords = user?.role === 'admin' || user?.role === 'principal' || user?.role === 'teacher';
 
   return (
     <div className="min-h-screen bg-white">
@@ -144,7 +155,7 @@ const AttendanceHistory = () => {
             <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs text-gray-400 tracking-wider uppercase mb-6">
               <span>{stats.totalRecords || filteredData.length} total records</span>
               <span>•</span>
-              <span>{stats.uniqueUsers || new Set(filteredData.map(r => r.userId?._id)).size} unique users</span>
+              <span>{stats.uniqueUsers || new Set(filteredData.map(r => r.users?.id || r.userId?._id || r.user_id)).size} unique users</span>
               {stats.averageDaily && (
                 <>
                   <span>•</span>
@@ -186,10 +197,18 @@ const AttendanceHistory = () => {
 
         {/* Attendance History Table */}
         <AttendanceTable 
-          attendanceData={filteredData}
+          data={filteredData}
+          onDeleteRecord={handleDeleteRecord}
+          showActions={canDeleteRecords}
+          isAdmin={canDeleteRecords}
           loading={loading}
-          error={error}
         />
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
       </div>
     </div>
   );

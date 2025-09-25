@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../contexts/ToastContext';
+import { schoolAPI } from '../api';
 
 const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = false }) => {
   const [formData, setFormData] = useState({
@@ -7,12 +8,42 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
     email: '',
     password: '',
     rfidTag: '',
-    role: 'member',
-    status: 'active',
+    role: 'student',
+    status: '',
     phone: '',
+    category: '',
+    gender: '',
+    std: '',
+    dob: '',
+    address: '',
+    blood_group: '',
+    aadhar_id: '',
+    school_id: ''
   });
   const [errors, setErrors] = useState({});
+  const [schools, setSchools] = useState([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(false);
   const { error: showError } = useToast();
+
+  // Fetch schools for the dropdown
+  const fetchSchools = async () => {
+    try {
+      setSchoolsLoading(true);
+      const response = await schoolAPI.getSchools();
+      setSchools(response.data.schools || []);
+    } catch (err) {
+      console.error('Error fetching schools:', err);
+      showError('Failed to fetch schools');
+    } finally {
+      setSchoolsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchSchools();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (member) {
@@ -21,10 +52,18 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
         name: member.name || '',
         email: member.email || '',
         password: '', // Don't pre-fill password
-        rfidTag: member.rfidTag || '',
-        role: member.role || 'member',
-        status: member.status || 'active',
+        rfidTag: member.rfid_tag || member.rfidTag || '',
+        role: member.role || 'student',
+        status: member.status || '',
         phone: member.phone || '',
+        category: member.category || '',
+        gender: member.gender || '',
+        std: member.std || '',
+        dob: member.dob ? member.dob.split('T')[0] : '', // Format date for input
+        address: member.address || '',
+        blood_group: member.blood_group || '',
+        aadhar_id: member.aadhar_id || '',
+        school_id: member.school_id || ''
       });
     } else {
       // Creating new member
@@ -33,9 +72,17 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
         email: '',
         password: '',
         rfidTag: '',
-        role: 'member',
-        status: 'active',
+        role: 'student',
+        status: '',
         phone: '',
+        category: '',
+        gender: '',
+        std: '',
+        dob: '',
+        address: '',
+        blood_group: '',
+        aadhar_id: '',
+        school_id: ''
       });
     }
     setErrors({});
@@ -57,6 +104,7 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     if (!formData.rfidTag.trim()) newErrors.rfidTag = 'RFID tag is required';
+    if (!formData.school_id) newErrors.school_id = 'School is required';
     
     // Password is required only for new members
     if (!member && !formData.password.trim()) {
@@ -71,6 +119,16 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
     // Password validation (only if provided)
     if (formData.password && formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    // Phone validation
+    if (formData.phone && !/^\+?[\d\s-]{10,15}$/.test(formData.phone)) {
+      newErrors.phone = 'Invalid phone number format';
+    }
+
+    // Aadhar validation
+    if (formData.aadhar_id && !/^\d{12}$/.test(formData.aadhar_id)) {
+      newErrors.aadhar_id = 'Aadhar ID must be 12 digits';
     }
 
     setErrors(newErrors);
@@ -223,10 +281,34 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
               disabled={loading}
               className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
             >
-              <option value="member">Member</option>
-              <option value="mentor">Mentor</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="principal">Principal</option>
               <option value="admin">Admin</option>
             </select>
+          </div>
+
+          {/* School Selection */}
+          <div>
+            <select
+              name="school_id"
+              value={formData.school_id}
+              onChange={handleChange}
+              disabled={loading || schoolsLoading}
+              className={`w-full border-0 border-b bg-transparent py-4 text-sm focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50 ${
+                errors.school_id ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-black'
+              }`}
+            >
+              <option value="">Select School</option>
+              {schools.map((school) => (
+                <option key={school.school_id} value={school.school_id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+            {errors.school_id && (
+              <p className="mt-2 text-xs text-red-500">{errors.school_id}</p>
+            )}
           </div>
 
           {/* Status */}

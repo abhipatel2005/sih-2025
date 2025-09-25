@@ -45,7 +45,7 @@ const Navigation = () => {
 
   const shouldShowLink = (link) => {
     if (link.adminOnly && user?.role !== 'admin') return false;
-    if (link.adminOrMentor && !['admin', 'mentor'].includes(user?.role)) return false;
+    if (link.adminOrMentor && !['admin', 'principal', 'teacher'].includes(user?.role)) return false;
     return true;
   };
 

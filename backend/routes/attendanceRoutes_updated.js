@@ -1,7 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
-const { authMiddleware, adminOrMentorMiddleware, teacherOnlyMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminOrMentorMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { supabase } = require('../config/supabase');
 
 const router = express.Router();
@@ -301,8 +301,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /attendance/manual - Manual attendance entry (teacher only)
-router.post('/manual', authMiddleware, teacherOnlyMiddleware, async (req, res) => {
+// POST /attendance/manual - Manual attendance entry (admin/teacher only)
+router.post('/manual', authMiddleware, adminOrMentorMiddleware, async (req, res) => {
   try {
     const { userId, date, timestamp, status = 'present' } = req.body;
 

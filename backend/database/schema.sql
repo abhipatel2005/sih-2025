@@ -3,15 +3,20 @@ CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name VARCHAR NOT NULL,
   rfid_tag VARCHAR UNIQUE NOT NULL,
-  role VARCHAR DEFAULT 'member' CHECK (role IN ('member', 'admin', 'mentor')),
-  status VARCHAR DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  role VARCHAR DEFAULT 'member' CHECK (role IN ('teacher', 'admin', 'student', 'principal')),
+  status VARCHAR DEFAULT '' CHECK (status IN ('present', 'absent', 'late', '')),
   email VARCHAR UNIQUE NOT NULL,
   phone VARCHAR,
+  category VARCHAR,
+  gender VARCHAR,
+  std VARCHAR,
   password VARCHAR NOT NULL,
   profile_picture TEXT DEFAULT '',
-  joined_date TIMESTAMPTZ DEFAULT NOW(),
-  skills TEXT[] DEFAULT '{}',
-  bio TEXT DEFAULT '',
+  dob DATE,
+  address VARCHAR,
+  blood_group VARCHAR,
+  aadhar_id VARCHAR,
+  school_id uuid NOT NULL REFERENCES schools(school_id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -21,14 +26,19 @@ CREATE TABLE attendance (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   date DATE NOT NULL,
-  sessions JSONB DEFAULT '[]',
-  -- Legacy fields for backward compatibility
-  entry_time TIMESTAMPTZ,
-  exit_time TIMESTAMPTZ,
   timestamp TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+--Schools table
+create table schools (
+  school_id uuid primary key default gen_random_uuid(),
+  name text not null,
+  district text not null,
+  state text not null
+);
+
 
 -- Create indexes for better performance
 CREATE INDEX idx_attendance_user_date ON attendance(user_id, date DESC);

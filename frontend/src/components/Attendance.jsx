@@ -22,7 +22,7 @@ const Attendance = () => {
     
     try {
       const response = await attendanceAPI.getTodayAttendance();
-      setAttendanceData(response.data);
+      setAttendanceData(response.data.attendance || []);
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error fetching attendance data:', err);
@@ -38,6 +38,7 @@ const Attendance = () => {
       setFilteredData(attendanceData);
     } else {
       const filtered = attendanceData.filter(record =>
+        record.users?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -77,7 +78,7 @@ const Attendance = () => {
               Today's Attendance
             </h1>
             <div className="flex flex-wrap gap-3 sm:gap-4">
-              {(user?.role === 'admin' || user?.role === 'mentor') && (
+              {(user?.role === 'admin' || user?.role === 'principal' || user?.role === 'teacher') && (
                 <>
                   <Link
                     to="/attendance/history"
@@ -124,10 +125,17 @@ const Attendance = () => {
 
         {/* Attendance Table */}
         <AttendanceTable 
-          attendanceData={filteredData}
+          data={filteredData}
           loading={loading}
-          error={error}
+          showActions={false}
+          isAdmin={false}
         />
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
       </div>
     </div>
   );

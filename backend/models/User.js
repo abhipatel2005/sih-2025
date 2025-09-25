@@ -40,15 +40,20 @@ class User {
       const userData = {
         name: this.name,
         rfid_tag: this.rfidTag || this.rfid_tag,
-        role: this.role || 'member',
-        status: this.status || 'active',
+        role: this.role || 'student',
+        status: this.status || null,
         email: this.email,
         phone: this.phone,
+        category: this.category,
+        gender: this.gender,
+        std: this.std,
         password: this.password,
         profile_picture: this.profilePicture || this.profile_picture || '',
-        joined_date: this.joinedDate || this.joined_date || new Date().toISOString(),
-        skills: this.skills || [],
-        bio: this.bio || ''
+        dob: this.dob,
+        address: this.address,
+        blood_group: this.blood_group,
+        aadhar_id: this.aadhar_id,
+        school_id: this.school_id
       };
 
       let result;
@@ -206,6 +211,23 @@ class User {
 
       if (error) throw error;
       return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Static method to update user status
+  static async updateStatus(userId, status) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update({ status })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
       throw error;
     }

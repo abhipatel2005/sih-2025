@@ -15,43 +15,21 @@ class Attendance {
   // Save attendance to database
   async save() {
     try {
-      // Handle migration from old schema
+      // Handle legacy userId field
       if (this.userId && !this.user_id) {
         this.user_id = this.userId;
       }
 
-      // Migrate old single entry/exit to sessions array
-      if ((this.entryTime || this.timestamp) && (!this.sessions || this.sessions.length === 0)) {
-        const entryTime = this.entryTime || this.timestamp;
-        const session = {
-          entryTime: entryTime,
-          exitTime: this.exitTime || null,
-          autoExitSet: false
-        };
-        this.sessions = [session];
-        this.date = Attendance.getDateOnly(entryTime);
-      }
-
-      // Ensure sessions have proper entry times and update legacy fields for compatibility
-      if (this.sessions && this.sessions.length > 0) {
-        // Update legacy fields with first session for backward compatibility
-        this.entry_time = this.sessions[0].entryTime;
-        this.exit_time = this.sessions[this.sessions.length - 1].exitTime;
-        this.timestamp = this.sessions[0].entryTime;
-
-        // Set date based on first session entry time
-        if (!this.date) {
-          this.date = Attendance.getDateOnly(this.sessions[0].entryTime);
-        }
+      // Set date from timestamp if not provided
+      if (!this.date && this.timestamp) {
+        this.date = Attendance.getDateOnly(this.timestamp);
       }
 
       const attendanceData = {
         user_id: this.user_id || this.user,
         date: this.date,
-        sessions: this.sessions || [],
-        entry_time: this.entry_time,
-        exit_time: this.exit_time,
-        timestamp: this.timestamp
+        timestamp: this.timestamp,
+        status: this.status || 'present'
       };
 
       let result;

@@ -9,7 +9,8 @@ const { supabase } = require('./config/supabase');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const attendanceRoutes = require('./routes/attendanceRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes_updated');
+const schoolRoutes = require('./routes/schoolRoutes');
 
 // Import models
 const User = require('./models/User');
@@ -41,6 +42,7 @@ testSupabaseConnection();
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/attendance', attendanceRoutes);
+app.use('/schools', schoolRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

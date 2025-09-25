@@ -77,7 +77,7 @@ function App() {
               <Route 
                 path="/attendance/history" 
                 element={
-                  <ProtectedRoute mentorOrAdminOnly={true}>
+                  <ProtectedRoute teacherOrAdminOnly={true}>
                     <AttendanceHistory />
                   </ProtectedRoute>
                 } 
@@ -86,7 +86,7 @@ function App() {
               <Route 
                 path="/attendance/manual" 
                 element={
-                  <ProtectedRoute mentorOrAdminOnly={true}>
+                  <ProtectedRoute teacherOrAdminOnly={true}>
                     <ManualAttendance />
                   </ProtectedRoute>
                 } 
