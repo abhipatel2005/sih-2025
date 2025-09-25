@@ -15,7 +15,7 @@ const authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get user from database
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await User.findById(decoded.userId);
     
     if (!user) {
       return res.status(401).json({ error: 'Token is not valid' });
@@ -27,11 +27,12 @@ const authMiddleware = async (req, res, next) => {
 
     // Add user to request object
     req.user = {
-      id: user._id,
+      id: user.id,
       role: user.role,
       email: user.email,
       name: user.name,
-      status: user.status
+      status: user.status,
+      school_id: user.school_id
     };
 
     next();
@@ -57,12 +58,33 @@ const adminMiddleware = (req, res, next) => {
   }
 };
 
-// Middleware to check if user is admin or mentor
-const adminOrMentorMiddleware = (req, res, next) => {
-  if (req.user && (req.user.role === 'admin' || req.user.role === 'mentor')) {
+// Middleware to check if user is admin or teacher (replaces adminOrMentorMiddleware)
+const adminOrTeacherMiddleware = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'principal')) {
     next();
   } else {
-    res.status(403).json({ error: 'Access denied. Admin or Mentor role required.' });
+    res.status(403).json({ error: 'Access denied. Admin, Teacher, or Principal role required.' });
+  }
+};
+
+// Legacy middleware for backward compatibility
+const adminOrMentorMiddleware = adminOrTeacherMiddleware;
+
+// Middleware to check if user is teacher only
+const teacherOnlyMiddleware = (req, res, next) => {
+  if (req.user && req.user.role === 'teacher') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access denied. Teacher role required.' });
+  }
+};
+
+// Middleware to check if user is teacher or principal
+const teacherOrPrincipalMiddleware = (req, res, next) => {
+  if (req.user && (req.user.role === 'teacher' || req.user.role === 'principal')) {
+    next();
+  } else {
+    res.status(403).json({ error: 'Access denied. Teacher or Principal role required.' });
   }
 };
 
@@ -73,15 +95,16 @@ const optionalAuthMiddleware = async (req, res, next) => {
     
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
+      const user = await User.findById(decoded.userId);
       
-      if (user && user.status === 'active') {
+      if (user && user.status !== 'inactive') {
         req.user = {
-          id: user._id,
+          id: user.id,
           role: user.role,
           email: user.email,
           name: user.name,
-          status: user.status
+          status: user.status,
+          school_id: user.school_id
         };
       }
     }
@@ -97,5 +120,8 @@ module.exports = {
   authMiddleware,
   adminMiddleware,
   adminOrMentorMiddleware,
+  adminOrTeacherMiddleware,
+  teacherOnlyMiddleware,
+  teacherOrPrincipalMiddleware,
   optionalAuthMiddleware
 };

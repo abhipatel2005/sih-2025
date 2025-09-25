@@ -89,7 +89,7 @@ const Members = () => {
     }
 
     try {
-      await userAPI.deleteUser(member._id);
+      await userAPI.deleteUser(member.id);
       success(`${member.name} has been deleted`);
       fetchMembers();
       fetchStats();
@@ -103,7 +103,7 @@ const Members = () => {
     const newStatus = member.status === 'active' ? 'inactive' : 'active';
     
     try {
-      await userAPI.toggleUserStatus(member._id, newStatus);
+      await userAPI.toggleUserStatus(member.id, newStatus);
       success(`${member.name} is now ${newStatus}`);
       fetchMembers();
       fetchStats();
@@ -119,7 +119,7 @@ const Members = () => {
     try {
       if (editingMember) {
         // Update existing member
-        await userAPI.updateUser(editingMember._id, formData);
+        await userAPI.updateUser(editingMember.id, formData);
         success(`${formData.name} has been updated`);
       } else {
         // Create new member using admin register endpoint
@@ -141,7 +141,9 @@ const Members = () => {
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin': return 'text-red-600';
-      case 'mentor': return 'text-blue-600';
+      case 'principal': return 'text-purple-600';
+      case 'teacher': return 'text-blue-600';
+      case 'student': return 'text-green-600';
       default: return 'text-gray-600';
     }
   };
@@ -234,7 +236,7 @@ const Members = () => {
               {/* Table Rows */}
               {filteredMembers.map((member) => (
                 <div 
-                  key={member._id} 
+                  key={member.id} 
                   className="flex flex-col md:flex-row md:items-center py-6 border-b border-gray-100 last:border-b-0 group hover:bg-gray-50/50 transition-colors duration-200"
                 >
                   {/* Mobile Layout */}
@@ -252,12 +254,12 @@ const Members = () => {
                     </div>
                     <div className="text-xs text-gray-600 space-y-1">
                       <p>{member.email}</p>
-                      <p>RFID: {member.rfidTag}</p>
+                      <p>RFID: {member.rfid_tag}</p>
                       {member.phone && <p>Phone: {member.phone}</p>}
                     </div>
                     <div className="flex space-x-4 pt-2">
                       <Link
-                        to={`/user/${member._id}`}
+                        to={`/user/${member.id}`}
                         className="text-xs text-gray-400 hover:text-black transition-colors duration-200"
                       >
                         View Details
@@ -295,17 +297,9 @@ const Members = () => {
                         {member.role}
                       </span>
                     </div>
-                    <div className="w-24">
-                      <div className="flex items-center space-x-2">
-                        <span className={`w-2 h-2 rounded-full ${member.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                        <span className={`text-xs capitalize ${getStatusColor(member.status)}`}>
-                          {member.status}
-                        </span>
-                      </div>
-                    </div>
                     <div className="w-32">
                       <span className="text-xs text-gray-600 font-mono">
-                        {member.rfidTag}
+                        {member.rfid_tag}
                       </span>
                     </div>
                     <div className="flex-1">
@@ -321,7 +315,7 @@ const Members = () => {
                     <div className="w-32">
                       <div className="flex space-x-2">
                         <Link
-                          to={`/user/${member._id}`}
+                          to={`/user/${member.id}`}
                           className="text-xs text-gray-400 hover:text-black transition-colors duration-200"
                         >
                           View

@@ -20,7 +20,14 @@ const Profile = () => {
     skills: '',
     bio: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    category: '',
+    gender: '',
+    std: '',
+    dob: '',
+    address: '',
+    bloodGroup: '',
+    aadharId: ''
   });
   const [errors, setErrors] = useState({});
 
@@ -39,7 +46,14 @@ const Profile = () => {
         skills: userData.skills ? userData.skills.join(', ') : '',
         bio: userData.bio || '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        category: userData.category || '',
+        gender: userData.gender || '',
+        std: userData.std || '',
+        dob: userData.dob || '',
+        address: userData.address || '',
+        bloodGroup: userData.bloodGroup || userData.blood_group || '',
+        aadharId: userData.aadharId || userData.aadhar_id || ''
       });
       
     } catch (err) {
@@ -128,13 +142,20 @@ const Profile = () => {
     try {
       setUpdating(true);
       
-      // Prepare update data
+      // Prepare update data with correct field mapping
       const updateData = {
         email: formData.email,
         phone: formData.phone,
         profilePicture: formData.profilePicture,
         skills: formData.skills ? formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill) : [],
-        bio: formData.bio
+        bio: formData.bio,
+        category: formData.category,
+        gender: formData.gender,
+        std: formData.std,
+        dob: formData.dob,
+        address: formData.address,
+        blood_group: formData.bloodGroup,
+        aadhar_id: formData.aadharId
       };
 
       // Add password if provided
@@ -182,7 +203,14 @@ const Profile = () => {
       skills: profile.skills ? profile.skills.join(', ') : '',
       bio: profile.bio || '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      category: profile.category || '',
+      gender: profile.gender || '',
+      std: profile.std || '',
+      dob: profile.dob || '',
+      address: profile.address || '',
+      bloodGroup: profile.bloodGroup || profile.blood_group || '',
+      aadharId: profile.aadharId || profile.aadhar_id || ''
     });
   };
 
@@ -320,6 +348,121 @@ const Profile = () => {
                   {errors.phone && (
                     <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
                   )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    name="dob"
+                    value={formData.dob}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Gender
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Category
+                  </label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="general">General</option>
+                    <option value="obc">OBC</option>
+                    <option value="sc">SC</option>
+                    <option value="st">ST</option>
+                    <option value="ews">EWS</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Blood Group
+                  </label>
+                  <select
+                    name="bloodGroup"
+                    value={formData.bloodGroup}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Class/Standard
+                  </label>
+                  <input
+                    type="text"
+                    name="std"
+                    value={formData.std}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="e.g., 10th, 12th"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Aadhar ID
+                  </label>
+                  <input
+                    type="text"
+                    name="aadharId"
+                    value={formData.aadharId}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="12-digit Aadhar number"
+                    maxLength="12"
+                    pattern="[0-9]{12}"
+                  />
+                </div>
+                
+                <div className="lg:col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="Your address"
+                  />
                 </div>
               </div>
             </div>
@@ -476,6 +619,64 @@ const Profile = () => {
                   </label>
                   <p className="text-sm text-black">{profile?.phone || 'Not provided'}</p>
                 </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Date of Birth
+                  </label>
+                  <p className="text-sm text-black">{profile?.dob ? formatDate(profile.dob) : 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Gender
+                  </label>
+                  <p className="text-sm text-black capitalize">{profile?.gender || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Category
+                  </label>
+                  <p className="text-sm text-black uppercase">{profile?.category || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Blood Group
+                  </label>
+                  <p className="text-sm text-black">{profile?.bloodGroup || profile?.blood_group || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Class/Standard
+                  </label>
+                  <p className="text-sm text-black">{profile?.std || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Aadhar ID
+                  </label>
+                  <p className="text-sm text-black font-mono">{profile?.aadharId || profile?.aadhar_id || 'Not provided'}</p>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Address
+                  </label>
+                  <p className="text-sm text-black">{profile?.address || 'Not provided'}</p>
+                </div>
+                
+                {profile?.school && (
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                      School
+                    </label>
+                    <p className="text-sm text-black">{profile.school.name}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -577,10 +778,7 @@ const Profile = () => {
                           Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                          Entry Time
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                          Exit Time
+                          Time
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 tracking-wider uppercase">
                           Status
@@ -589,55 +787,40 @@ const Profile = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {attendanceData.map((record, index) => {
-                        // Handle both new session structure and legacy structure
-                        const sessions = record.sessions || [];
-                        const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-                        const hasExit = lastSession ? lastSession.exitTime : record.exitTime;
-                        const entryTime = lastSession ? lastSession.entryTime : (record.entryTime || record.timestamp);
+                        const status = record.status || 'present';
+                        
+                        // Helper function to get status badge color
+                        const getStatusBadgeColor = (status) => {
+                          switch (status?.toLowerCase()) {
+                            case 'present':
+                              return 'bg-green-100 text-green-800';
+                            case 'absent':
+                              return 'bg-red-100 text-red-800';
+                            case 'late':
+                              return 'bg-yellow-100 text-yellow-800';
+                            case 'excused':
+                              return 'bg-blue-100 text-blue-800';
+                            default:
+                              return 'bg-gray-100 text-gray-800';
+                          }
+                        };
                         
                         return (
-                          <tr key={record._id || record.id || index} className={`hover:bg-gray-50 transition-colors duration-200 ${hasExit ? 'bg-green-50/30' : ''}`}>
+                          <tr key={record._id || record.id || index} className="hover:bg-gray-50 transition-colors duration-200">
                             <td className="px-4 py-3 text-sm text-black">
-                              {formatDateIST(record.date || entryTime, {
+                              {formatDateIST(record.date, {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })}
                             </td>
                             <td className="px-4 py-3 text-sm text-black font-mono">
-                              {formatTimeIST(entryTime)}
-                              {sessions.length > 1 && (
-                                <span className="ml-2 text-xs text-gray-500">
-                                  +{sessions.length - 1} more
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-mono">
-                              {hasExit ? (
-                                <span className="text-black">
-                                  {formatTimeIST(hasExit)}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">Not yet logged</span>
-                              )}
+                              {record.timestamp ? formatTimeIST(record.timestamp) : 'N/A'}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {hasExit ? (
-                                <div className="inline-flex items-center space-x-1">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Complete
-                                  </span>
-                                  <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  In Progress
-                                </span>
-                              )}
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadgeColor(status)}`}>
+                                {status}
+                              </span>
                             </td>
                           </tr>
                         );

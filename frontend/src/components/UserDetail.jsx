@@ -22,7 +22,7 @@ const UserDetail = () => {
   });
 
   // Check access permissions
-  const canViewUserDetails = currentUser?.role === 'admin' || currentUser?.role === 'mentor' || currentUser?._id === id;
+  const canViewUserDetails = currentUser?.role === 'admin' || currentUser?.role === 'principal' || currentUser?.role === 'teacher' || currentUser?.id?.toString() === id;
 
   // Redirect if not authorized
   useEffect(() => {
@@ -37,11 +37,23 @@ const UserDetail = () => {
     setError(null);
     
     try {
-      const response = await userAPI.getUser(id);
+      let response;
+      // If viewing own profile, use /me endpoint, otherwise use admin endpoint
+      if (currentUser?.id?.toString() === id) {
+        response = await userAPI.getMyProfile();
+      } else {
+        response = await userAPI.getUser(id);
+      }
       setUser(response.data.user || response.data);
     } catch (err) {
       console.error('Error fetching user:', err);
-      setError(err.response?.data?.error || 'Failed to fetch user details');
+      if (err.response?.status === 404) {
+        setError('User not found');
+      } else if (err.response?.status === 403) {
+        setError('Access denied');
+      } else {
+        setError(err.response?.data?.error || 'Failed to fetch user details');
+      }
     } finally {
       setLoading(false);
     }
@@ -49,6 +61,9 @@ const UserDetail = () => {
 
   // Fetch user attendance
   const fetchUserAttendance = async () => {
+    // Only fetch attendance after user is loaded
+    if (!user) return;
+    
     setAttendanceLoading(true);
     
     try {
@@ -58,11 +73,29 @@ const UserDetail = () => {
         limit: 100
       };
       
-      const response = await attendanceAPI.getUserAttendance(id, params);
+      let response;
+      // If viewing own profile, use /my endpoint, otherwise use admin endpoint
+      if (currentUser?.id?.toString() === id) {
+        response = await attendanceAPI.getMyAttendance(params);
+      } else {
+        // Only admins/teachers/principals can view other users' attendance
+        if (!['admin', 'teacher', 'principal'].includes(currentUser?.role)) {
+          setUserAttendance([]);
+          setAttendanceLoading(false);
+          return;
+        }
+        response = await attendanceAPI.getUserAttendance(id, params);
+      }
+      
       setUserAttendance(response.data.attendance || response.data || []);
     } catch (err) {
       console.error('Error fetching user attendance:', err);
-      showError(err.response?.data?.error || 'Failed to fetch attendance records');
+      if (err.response?.status === 403 || err.response?.status === 404) {
+        setUserAttendance([]);
+        // Don't show error for permission issues, just show empty state
+      } else {
+        showError(err.response?.data?.error || 'Failed to fetch attendance records');
+      }
     } finally {
       setAttendanceLoading(false);
     }
@@ -70,17 +103,17 @@ const UserDetail = () => {
 
   // Initial data fetch
   useEffect(() => {
-    if (id) {
+    if (id && currentUser) {
       fetchUser();
     }
-  }, [id]);
+  }, [id, currentUser]);
 
-  // Fetch attendance when user or date range changes
+  // Fetch attendance when user is loaded and date range changes
   useEffect(() => {
-    if (id) {
+    if (id && currentUser && user) {
       fetchUserAttendance();
     }
-  }, [id, dateRange]);
+  }, [id, currentUser, user, dateRange]);
 
   const handleDateChange = (field, value) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
@@ -102,7 +135,9 @@ const UserDetail = () => {
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin': return 'text-red-600';
-      case 'mentor': return 'text-blue-600';
+      case 'principal': return 'text-purple-600';
+      case 'teacher': return 'text-blue-600';
+      case 'student': return 'text-green-600';
       default: return 'text-gray-600';
     }
   };
@@ -219,7 +254,7 @@ const UserDetail = () => {
                   </div>
                   <div>
                     <span className="text-gray-400 tracking-wider uppercase text-xs">RFID Tag:</span>
-                    <p className="text-black font-mono">{user.rfidTag}</p>
+                    <p className="text-black font-mono">{user.rfid_tag || user.rfidTag || 'Not assigned'}</p>
                   </div>
                   <div>
                     <span className="text-gray-400 tracking-wider uppercase text-xs">Role:</span>
@@ -235,9 +270,57 @@ const UserDetail = () => {
                       <p className="text-black">{user.phone}</p>
                     </div>
                   )}
+                  {user.dob && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Date of Birth:</span>
+                      <p className="text-black">{formatDate(user.dob)}</p>
+                    </div>
+                  )}
+                  {user.gender && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Gender:</span>
+                      <p className="text-black capitalize">{user.gender}</p>
+                    </div>
+                  )}
+                  {user.category && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Category:</span>
+                      <p className="text-black uppercase">{user.category}</p>
+                    </div>
+                  )}
+                  {user.std && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Class/Standard:</span>
+                      <p className="text-black">{user.std}</p>
+                    </div>
+                  )}
+                  {(user.bloodGroup || user.blood_group) && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Blood Group:</span>
+                      <p className="text-black">{user.bloodGroup || user.blood_group}</p>
+                    </div>
+                  )}
+                  {(user.aadharId || user.aadhar_id) && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Aadhar ID:</span>
+                      <p className="text-black font-mono">{user.aadharId || user.aadhar_id}</p>
+                    </div>
+                  )}
+                  {user.address && (
+                    <div className="md:col-span-2">
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">Address:</span>
+                      <p className="text-black">{user.address}</p>
+                    </div>
+                  )}
+                  {user.school && (
+                    <div>
+                      <span className="text-gray-400 tracking-wider uppercase text-xs">School:</span>
+                      <p className="text-black">{user.school.name}</p>
+                    </div>
+                  )}
                   <div>
                     <span className="text-gray-400 tracking-wider uppercase text-xs">Joined:</span>
-                    <p className="text-black">{formatDate(user.createdAt)}</p>
+                    <p className="text-black">{formatDate(user.created_at || user.createdAt)}</p>
                   </div>
                 </div>
               </div>
@@ -293,14 +376,14 @@ const UserDetail = () => {
             ) : (
               userAttendance.map((record) => (
                 <div 
-                  key={record._id} 
+                  key={record.id} 
                   className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
                 >
                   <div className="flex items-center space-x-4">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <div>
                       <div className="text-sm text-black">Check-in</div>
-                      <div className="text-xs text-gray-400">Record ID: {record._id.slice(-8)}</div>
+                      <div className="text-xs text-gray-400">Record ID: {record.id.slice(-8)}</div>
                     </div>
                   </div>
                   
