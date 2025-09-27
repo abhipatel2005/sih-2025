@@ -21,8 +21,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+const allowedOrigins = [
+  'https://digitalhajri.site',
+  'https://api.digitalhajri.site'
+];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true
 }));
 
