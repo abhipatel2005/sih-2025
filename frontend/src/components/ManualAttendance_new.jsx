@@ -38,11 +38,18 @@ const ManualAttendance = () => {
   const fetchUsers = async () => {
     setUsersLoading(true);
     try {
-      const response = await userAPI.getUsers({ status: 'active' });
+      // Use getStudents for teachers/principals to get school-filtered data
+      const response = user?.role === 'teacher' || user?.role === 'principal' 
+        ? await userAPI.getStudents({ status: 'active' })
+        : await userAPI.getUsers({ status: 'active' });
+        
       const activeUsers = response.data.users || response.data || [];
       
-      // For teachers, only show students
-      const filteredUsers = activeUsers.filter(userItem => userItem.role === 'student');
+      // For teachers, data is already filtered to students from their school
+      // For admins, filter to show only students
+      const filteredUsers = (user?.role === 'admin') 
+        ? activeUsers.filter(userItem => userItem.role === 'student')
+        : activeUsers;
       
       setUsers(filteredUsers);
       setFilteredUsers(filteredUsers);

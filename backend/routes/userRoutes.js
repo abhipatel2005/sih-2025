@@ -64,8 +64,9 @@ router.get('/students', authMiddleware, teacherOrPrincipalMiddleware, async (req
     
     let query = supabase
       .from('users')
-      .select('id, name, email, rfid_tag, role, created_at')
-      .eq('role', 'student'); // Only get students
+      .select('id, name, email, rfid_tag, role, created_at, school_id')
+      .eq('role', 'student') // Only get students
+      .eq('school_id', req.user.school_id); // Filter by teacher's school
     
     // Apply search filter
     if (search) {
@@ -190,6 +191,92 @@ router.get('/:id', authMiddleware, adminOrMentorMiddleware, async (req, res) => 
     }
     
     res.status(500).json({ error: 'Server error while fetching user' });
+  }
+});
+
+// POST /users/students - Create new student (teacher/principal access)
+router.post('/students', authMiddleware, teacherOrPrincipalMiddleware, async (req, res) => {
+  try {
+    const { 
+      name, 
+      rfidTag, 
+      email, 
+      password, 
+      phone,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !rfidTag || !email || !password) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: name, rfidTag, email, password' 
+      });
+    }
+
+    // Force role to student for this endpoint
+    const role = 'student';
+
+    // Get school_id from the authenticated teacher/principal
+    const school_id = req.user.school_id;
+    if (!school_id) {
+      return res.status(400).json({ error: 'Teacher must be associated with a school' });
+    }
+
+    // Check if user already exists
+    const existingUserByEmail = await User.findByEmail(email);
+    if (existingUserByEmail) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    const existingUserByRfid = await User.findByRfidTag(rfidTag);
+    if (existingUserByRfid) {
+      return res.status(400).json({ error: 'User with this RFID tag already exists' });
+    }
+
+    // Create new student
+    const user = new User({
+      name,
+      rfid_tag: rfidTag,
+      email,
+      password,
+      phone,
+      role,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id,
+      status: null
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'Student created successfully',
+      user: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Create student error:', error);
+    
+    if (error.code === '23505') { // Unique constraint violation
+      const detail = error.detail || '';
+      let field = 'field';
+      if (detail.includes('email')) field = 'email';
+      if (detail.includes('rfid_tag')) field = 'RFID tag';
+      return res.status(400).json({ error: `Duplicate ${field}` });
+    }
+    
+    res.status(500).json({ error: 'Server error during student creation' });
   }
 });
 

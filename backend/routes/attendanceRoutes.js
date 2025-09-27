@@ -126,6 +126,22 @@ router.get('/', authMiddleware, async (req, res) => {
       role
     } = req.query;
 
+    // For teachers and principals, automatically filter by their school
+    let filterSchoolId = schoolId;
+    if (req.user.role === 'teacher' || req.user.role === 'principal') {
+      const { data: currentUser, error: userError } = await supabase
+        .from('users')
+        .select('school_id')
+        .eq('id', req.user.id)
+        .single();
+      
+      if (userError || !currentUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      filterSchoolId = currentUser.school_id;
+    }
+
     let query = supabase
       .from('attendance')
       .select(`
@@ -163,24 +179,20 @@ router.get('/', authMiddleware, async (req, res) => {
     // Calculate pagination
     const offset = (page - 1) * limit;
     
-    // Get count first
-    const { count } = await supabase
-      .from('attendance')
-      .select('*', { count: 'exact', head: true });
-
     // Get attendance records with pagination
-    const { data: attendance, error: attendanceError } = await query
+    const { data: attendance, error: attendanceError, count } = await query
       .order('timestamp', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + parseInt(limit) - 1)
+      .select('*', { count: 'exact' });
 
     if (attendanceError) throw attendanceError;
 
     // Filter by school or role if specified
     let filteredAttendance = attendance;
-    if (schoolId || role) {
+    if (filterSchoolId || role) {
       filteredAttendance = attendance.filter(record => {
         const user = record.users;
-        if (schoolId && user.school_id !== schoolId) return false;
+        if (filterSchoolId && user.school_id !== filterSchoolId) return false;
         if (role && user.role !== role) return false;
         return true;
       });
@@ -190,8 +202,8 @@ router.get('/', authMiddleware, async (req, res) => {
       attendance: filteredAttendance,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil((schoolId || role ? filteredAttendance.length : count) / limit),
-        totalRecords: schoolId || role ? filteredAttendance.length : count,
+        totalPages: Math.ceil((count || 0) / limit),
+        totalRecords: count || 0,
         limit: parseInt(limit)
       }
     });
@@ -206,6 +218,22 @@ router.get('/', authMiddleware, async (req, res) => {
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate, schoolId, role } = req.query;
+
+    // For teachers and principals, automatically filter by their school
+    let filterSchoolId = schoolId;
+    if (req.user.role === 'teacher' || req.user.role === 'principal') {
+      const { data: currentUser, error: userError } = await supabase
+        .from('users')
+        .select('school_id')
+        .eq('id', req.user.id)
+        .single();
+      
+      if (userError || !currentUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      filterSchoolId = currentUser.school_id;
+    }
 
     let attendanceQuery = supabase
       .from('attendance')
@@ -235,8 +263,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
     }
 
     // Apply school/role filters
-    if (schoolId) {
-      usersQuery = usersQuery.eq('school_id', schoolId);
+    if (filterSchoolId) {
+      usersQuery = usersQuery.eq('school_id', filterSchoolId);
     }
     if (role) {
       usersQuery = usersQuery.eq('role', role);
@@ -250,10 +278,10 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
     // Filter attendance records by school/role if needed
     let filteredAttendance = attendanceRecords;
-    if (schoolId || role) {
+    if (filterSchoolId || role) {
       filteredAttendance = attendanceRecords.filter(record => {
         const user = record.users;
-        if (schoolId && user.school_id !== schoolId) return false;
+        if (filterSchoolId && user.school_id !== filterSchoolId) return false;
         if (role && user.role !== role) return false;
         return true;
       });
@@ -316,10 +344,32 @@ router.post('/manual', authMiddleware, teacherOnlyMiddleware, async (req, res) =
       return res.status(400).json({ error: 'Invalid status. Must be one of: present, absent, late, excused' });
     }
 
-    // Find user
-    const user = await User.findById(userId);
-    if (!user) {
+    // Find user and verify they're in the same school as the teacher
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, name, email, role, school_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get the current teacher's school_id
+    const currentUserId = req.user.id;
+    const { data: currentUser, error: teacherError } = await supabase
+      .from('users')
+      .select('school_id')
+      .eq('id', currentUserId)
+      .single();
+    
+    if (teacherError || !currentUser) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+
+    // Verify the student belongs to the same school as the teacher
+    if (userData.school_id !== currentUser.school_id) {
+      return res.status(403).json({ error: 'You can only manage attendance for students in your school' });
     }
 
     // Use provided timestamp or create one for the date
@@ -355,9 +405,9 @@ router.post('/manual', authMiddleware, teacherOnlyMiddleware, async (req, res) =
 
     res.json({
       success: true,
-      message: `Manual attendance recorded for ${user.name}`,
+      message: `Manual attendance recorded for ${userData.name}`,
       data: {
-        user: user.toJSON(),
+        user: userData,
         attendance: {
           date: date,
           timestamp: attendanceTimestamp.toISOString(),
@@ -477,6 +527,22 @@ router.get('/history', authMiddleware, adminOrMentorMiddleware, async (req, res)
         )
       `);
 
+    // For teachers and principals, automatically filter by their school
+    let filterSchoolId = schoolId;
+    if (req.user.role === 'teacher' || req.user.role === 'principal') {
+      const { data: currentUser, error: userError } = await supabase
+        .from('users')
+        .select('school_id')
+        .eq('id', req.user.id)
+        .single();
+      
+      if (userError || !currentUser) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      filterSchoolId = currentUser.school_id;
+    }
+
     // Apply filters
     if (startDate) {
       query = query.gte('date', startDate);
@@ -488,34 +554,32 @@ router.get('/history', authMiddleware, adminOrMentorMiddleware, async (req, res)
       query = query.eq('user_id', userId);
     }
 
-    // If schoolId is provided or user is not admin, filter by school
-    if (schoolId || req.user.role !== 'admin') {
-      const userSchoolId = schoolId || req.user.school_id;
-      query = query.eq('users.school_id', userSchoolId);
-    }
-
     // Calculate pagination
     const offset = (page - 1) * limit;
     
-    // Get count first
-    const { count } = await supabase
-      .from('attendance')
-      .select('*', { count: 'exact', head: true });
-
     // Get records with pagination
-    const { data: attendanceRecords, error } = await query
+    const { data: attendanceRecords, error, count } = await query
       .order('date', { ascending: false })
       .order('timestamp', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + parseInt(limit) - 1)
+      .select('*', { count: 'exact' });
 
     if (error) throw error;
 
+    // Filter by school if needed (for teachers/principals)
+    let filteredAttendance = attendanceRecords;
+    if (filterSchoolId) {
+      filteredAttendance = attendanceRecords.filter(record => 
+        record.users && record.users.school_id === filterSchoolId
+      );
+    }
+
     res.json({
-      attendance: attendanceRecords,
+      attendance: filteredAttendance,
       pagination: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(count / limit),
-        totalRecords: count,
+        totalPages: Math.ceil((count || 0) / limit),
+        totalRecords: count || 0,
         limit: parseInt(limit)
       }
     });
@@ -539,15 +603,32 @@ router.get('/user/:userId', authMiddleware, adminOrMentorMiddleware, async (req,
       endDate 
     } = req.query;
 
-    // First verify user exists and check school permissions
-    const user = await User.findById(userId);
-    if (!user) {
+    // First verify user exists 
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, name, school_id, role')
+      .eq('id', userId)
+      .single();
+      
+    if (userError || !userData) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check school access permissions
-    if (req.user.role !== 'admin' && req.user.school_id !== user.school_id) {
-      return res.status(403).json({ error: 'Access denied: Different school' });
+    // For teachers and principals, verify school access permissions
+    if (req.user.role === 'teacher' || req.user.role === 'principal') {
+      const { data: currentUser, error: currentUserError } = await supabase
+        .from('users')
+        .select('school_id')
+        .eq('id', req.user.id)
+        .single();
+      
+      if (currentUserError || !currentUser) {
+        return res.status(404).json({ error: 'Current user not found' });
+      }
+      
+      if (currentUser.school_id !== userData.school_id) {
+        return res.status(403).json({ error: 'Access denied: You can only view attendance for users in your school' });
+      }
     }
 
     let query = supabase
@@ -573,7 +654,7 @@ router.get('/user/:userId', authMiddleware, adminOrMentorMiddleware, async (req,
 
     res.json({
       attendance: attendanceRecords,
-      user: user.toJSON(),
+      user: userData,
       count: attendanceRecords.length
     });
 

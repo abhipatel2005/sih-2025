@@ -41,7 +41,6 @@ class User {
         name: this.name,
         rfid_tag: this.rfidTag || this.rfid_tag,
         role: this.role || 'student',
-        status: this.status || null,
         email: this.email,
         phone: this.phone,
         category: this.category,
@@ -55,6 +54,12 @@ class User {
         aadhar_id: this.aadhar_id,
         school_id: this.school_id
       };
+      
+      // Only include status if it's defined and the column exists
+      // TODO: Add status back when the database schema is updated
+      // if (this.status !== undefined) {
+      //   userData.status = this.status;
+      // }
 
       let result;
       if (this.id) {

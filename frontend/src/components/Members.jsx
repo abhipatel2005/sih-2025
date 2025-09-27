@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { userAPI, authAPI } from '../api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import MemberFormModal from '../components/MemberFormModal';
 import SearchBar from '../components/SearchBar';
 
@@ -17,6 +18,10 @@ const Members = () => {
   const [stats, setStats] = useState(null);
   
   const { success, error: showError } = useToast();
+  const { user } = useAuth();
+  
+  // Check if current user is teacher/principal (should only see students)
+  const isTeacherView = user?.role === 'teacher' || user?.role === 'principal';
 
   // Fetch members data
   const fetchMembers = async (search = '') => {
@@ -30,7 +35,16 @@ const Members = () => {
         params.limit = 100; // Increase limit for search results
       }
       
-      const response = await userAPI.getUsers(params);
+      // Use different endpoint based on user role
+      let response;
+      if (isTeacherView) {
+        // Teachers only see students from their school
+        response = await userAPI.getStudents(params);
+      } else {
+        // Admins see all users
+        response = await userAPI.getUsers(params);
+      }
+      
       console.log(response.data)
       setMembers(response.data.users);
       setFilteredMembers(response.data.users); // Set filtered members directly
@@ -45,10 +59,16 @@ const Members = () => {
   // Fetch user statistics
   const fetchStats = async () => {
     try {
-      const response = await userAPI.getUserStats();
+      let response;
+      if (isTeacherView) {
+        response = await userAPI.getStudentStats();
+      } else {
+        response = await userAPI.getUserStats();
+      }
       setStats(response.data);
     } catch (err) {
       console.error('Error fetching stats:', err);
+      // Don't show error for stats as it's not critical
     }
   };
 
@@ -122,8 +142,14 @@ const Members = () => {
         await userAPI.updateUser(editingMember.id, formData);
         success(`${formData.name} has been updated`);
       } else {
-        // Create new member using admin register endpoint
-        await authAPI.register(formData);
+        // Create new member - use appropriate endpoint based on user role
+        if (isTeacherView) {
+          // Teachers use the student creation endpoint
+          await userAPI.createStudent(formData);
+        } else {
+          // Admins use the admin register endpoint
+          await authAPI.register(formData);
+        }
         success(`${formData.name} has been created successfully`);
       }
       
@@ -159,26 +185,28 @@ const Members = () => {
         <div className="mb-8 sm:mb-16">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
             <h1 className="text-lg font-medium text-black tracking-tight">
-              Members
+              {isTeacherView ? 'Students' : 'Members'}
             </h1>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <Link
-                to="/signup"
-                className="px-4 sm:px-6 py-3 border border-gray-200 text-xs tracking-wider uppercase font-medium hover:bg-gray-50 transition-colors duration-200 text-center"
-              >
-                Register New User
-              </Link>
+              {!isTeacherView && (
+                <Link
+                  to="/signup"
+                  className="px-4 sm:px-6 py-3 border border-gray-200 text-xs tracking-wider uppercase font-medium hover:bg-gray-50 transition-colors duration-200 text-center"
+                >
+                  Register New User
+                </Link>
+              )}
               <button
                 onClick={handleAddMember}
                 className="px-4 sm:px-6 py-3 bg-black text-white text-xs tracking-wider uppercase font-medium hover:bg-gray-800 transition-colors duration-200"
               >
-                Add Member
+                {isTeacherView ? 'Add Student' : 'Add Member'}
               </button>
             </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-400 tracking-wider uppercase">
-            <span>{members.length} total</span>
+            <span>{members.length} total {isTeacherView ? 'students' : 'members'}</span>
             {stats && (
               <>
                 <span>•</span>
@@ -217,7 +245,7 @@ const Members = () => {
           ) : filteredMembers.length === 0 ? (
             <div className="py-24 text-center">
               <p className="text-xs text-gray-400 tracking-wider uppercase">
-                {searchTerm ? 'No members found' : 'No members yet'}
+                {searchTerm ? `No ${isTeacherView ? 'students' : 'members'} found` : `No ${isTeacherView ? 'students' : 'members'} yet`}
               </p>
             </div>
           ) : (
@@ -226,7 +254,7 @@ const Members = () => {
               <div className="hidden md:flex items-center py-4 border-b border-gray-200 text-xs text-gray-400 tracking-wider uppercase">
                 <div className="flex-1">Name</div>
                 <div className="w-24">Role</div>
-                <div className="w-24">Status</div>
+                {/* <div className="w-24">Status</div> */}
                 <div className="w-32">RFID</div>
                 <div className="flex-1">Email</div>
                 <div className="w-32">Phone</div>
@@ -349,6 +377,7 @@ const Members = () => {
         onSubmit={handleFormSubmit}
         member={editingMember}
         loading={modalLoading}
+        restrictToStudents={isTeacherView}
       />
     </div>
   );

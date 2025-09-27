@@ -87,6 +87,10 @@ export const userAPI = {
   createUser: (userData) => 
     api.post('/users', userData),
   
+  // Create student for teachers (teacher-specific endpoint)
+  createStudent: (userData) => 
+    api.post('/users/students', userData),
+
   updateUser: (id, userData) => 
     api.put(`/users/${id}`, userData),
   
@@ -98,6 +102,9 @@ export const userAPI = {
   
   getUserStats: () => 
     api.get('/users/stats/summary'),
+    
+  getStudentStats: () => 
+    api.get('/users/students/stats'),
   
   // Member profile endpoints
   getMyProfile: () => 

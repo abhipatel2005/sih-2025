@@ -115,10 +115,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Check if user is active
-    if (user.status === 'inactive') {
-      return res.status(401).json({ error: 'Account is inactive. Please contact an administrator.' });
-    }
+    // Check if user is active (disabled until status column is added to DB)
+    // if (user.status === 'inactive') {
+    //   return res.status(401).json({ error: 'Account is inactive. Please contact an administrator.' });
+    // }
 
     // Check password
     const isPasswordValid = await user.comparePassword(password);

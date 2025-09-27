@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { schoolAPI } from '../api';
 
-const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = false }) => {
+const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = false, restrictToStudents = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -90,7 +90,21 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    let processedValue = value;
+    
+    // Format Aadhaar ID with spaces for better readability
+    if (name === 'aadhar_id') {
+      // Remove all non-digits
+      const digitsOnly = value.replace(/\D/g, '');
+      // Add spaces after every 4 digits, max 12 digits
+      if (digitsOnly.length <= 12) {
+        processedValue = digitsOnly.replace(/(.{4})(?=.)/g, '$1 ').trim();
+      } else {
+        return; // Don't update if more than 12 digits
+      }
+    }
+    
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
     
     // Clear error for this field
     if (errors[name]) {
@@ -121,13 +135,13 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    // Phone validation
+    // Phone validation (only if provided)
     if (formData.phone && !/^\+?[\d\s-]{10,15}$/.test(formData.phone)) {
       newErrors.phone = 'Invalid phone number format';
     }
 
-    // Aadhar validation
-    if (formData.aadhar_id && !/^\d{12}$/.test(formData.aadhar_id)) {
+    // Aadhar validation (only if provided)
+    if (formData.aadhar_id && !/^\d{12}$/.test(formData.aadhar_id.replace(/\s/g, ''))) {
       newErrors.aadhar_id = 'Aadhar ID must be 12 digits';
     }
 
@@ -145,6 +159,11 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
 
     try {
       const submitData = { ...formData };
+      
+      // Clean up aadhar_id (remove spaces)
+      if (submitData.aadhar_id) {
+        submitData.aadhar_id = submitData.aadhar_id.replace(/\s/g, '');
+      }
       
       // Don't include password if it's empty (for updates)
       if (!submitData.password) {
@@ -168,12 +187,12 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
       />
       
       {/* Modal */}
-      <div className="relative bg-white border border-gray-200 shadow-lg max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white border border-gray-200 shadow-lg max-w-lg w-full mx-4 max-h-[95vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-6 border-b border-gray-100">
+        <div className="sticky top-0 bg-white p-6 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-medium text-black tracking-tight">
-              {member ? 'Edit Member' : 'Add Member'}
+              {member ? 'Edit Member' : (restrictToStudents ? 'Add Student' : 'Add Member')}
             </h2>
             <button
               onClick={onClose}
@@ -268,7 +287,126 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
               value={formData.phone}
               onChange={handleChange}
               disabled={loading}
+              className={`w-full border-0 border-b bg-transparent py-4 text-sm placeholder-gray-400 focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50 ${
+                errors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-black'
+              }`}
+            />
+            {errors.phone && (
+              <p className="mt-2 text-xs text-red-500">{errors.phone}</p>
+            )}
+          </div>
+
+          {/* Date of Birth */}
+          <div>
+            <input
+              type="date"
+              name="dob"
+              placeholder="Date of Birth"
+              value={formData.dob}
+              onChange={handleChange}
+              disabled={loading}
               className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            />
+          </div>
+
+          {/* Gender */}
+          <div>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Category */}
+          <div>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Category</option>
+              <option value="General">General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC">SC</option>
+              <option value="ST">ST</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Standard/Class (for students) */}
+          {formData.role === 'student' && (
+            <div>
+              <input
+                type="text"
+                name="std"
+                placeholder="Standard/Class (e.g. 10th, 12th)"
+                value={formData.std}
+                onChange={handleChange}
+                disabled={loading}
+                className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+              />
+            </div>
+          )}
+
+          {/* Blood Group */}
+          <div>
+            <select
+              name="blood_group"
+              value={formData.blood_group}
+              onChange={handleChange}
+              disabled={loading}
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
+            >
+              <option value="">Select Blood Group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          {/* Aadhaar ID */}
+          <div>
+            <input
+              type="text"
+              name="aadhar_id"
+              placeholder="Aadhaar ID (e.g. 1234 5678 9012)"
+              value={formData.aadhar_id}
+              onChange={handleChange}
+              disabled={loading}
+              className={`w-full border-0 border-b bg-transparent py-4 text-sm placeholder-gray-400 focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50 ${
+                errors.aadhar_id ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-black'
+              }`}
+            />
+            {errors.aadhar_id && (
+              <p className="mt-2 text-xs text-red-500">{errors.aadhar_id}</p>
+            )}
+          </div>
+
+          {/* Address */}
+          <div>
+            <textarea
+              name="address"
+              placeholder="Address (optional)"
+              value={formData.address}
+              onChange={handleChange}
+              disabled={loading}
+              rows="3"
+              className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm placeholder-gray-400 focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50 resize-none"
             />
           </div>
 
@@ -282,9 +420,13 @@ const MemberFormModal = ({ isOpen, onClose, onSubmit, member = null, loading = f
               className="w-full border-0 border-b border-gray-200 bg-transparent py-4 text-sm focus:border-black focus:outline-none focus:ring-0 transition-colors duration-200 disabled:opacity-50"
             >
               <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="principal">Principal</option>
-              <option value="admin">Admin</option>
+              {!restrictToStudents && (
+                <>
+                  <option value="teacher">Teacher</option>
+                  <option value="principal">Principal</option>
+                  <option value="admin">Admin</option>
+                </>
+              )}
             </select>
           </div>
 

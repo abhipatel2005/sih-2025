@@ -30,7 +30,11 @@ const Navigation = () => {
       { to: '/attendance', label: 'Attendance', adminOnly: true }
     ],
     management: [
-      { to: '/members', label: 'Members', adminOnly: true },
+      { 
+        to: '/members', 
+        label: user?.role === 'admin' ? 'Members' : 'Students', 
+        teacherAccess: true 
+      },
       { to: '/signup', label: 'Add User', adminOnly: true }
     ],
     tools: [
@@ -46,6 +50,7 @@ const Navigation = () => {
   const shouldShowLink = (link) => {
     if (link.adminOnly && user?.role !== 'admin') return false;
     if (link.adminOrMentor && !['admin', 'principal', 'teacher'].includes(user?.role)) return false;
+    if (link.teacherAccess && !['admin', 'principal', 'teacher'].includes(user?.role)) return false;
     return true;
   };
 
@@ -190,23 +195,24 @@ const Navigation = () => {
                 Profile
               </NavLink>
 
-              {/* Grouped Navigation for Admin */}
+              {/* Grouped Navigation for Admin/Teachers */}
+              {['admin', 'principal', 'teacher'].includes(user?.role) && navigationGroups.management.filter(shouldShowLink).length > 0 && (
+                <DropdownMenu
+                  title="Manage"
+                  links={navigationGroups.management}
+                  isOpen={isDropdownOpen === 'management'}
+                  onToggle={() => setIsDropdownOpen(isDropdownOpen === 'management' ? null : 'management')}
+                />
+              )}
+
+              {/* System Navigation for Admin only */}
               {user?.role === 'admin' && (
-                <>
-                  <DropdownMenu
-                    title="Manage"
-                    links={navigationGroups.management}
-                    isOpen={isDropdownOpen === 'management'}
-                    onToggle={() => setIsDropdownOpen(isDropdownOpen === 'management' ? null : 'management')}
-                  />
-                  
-                  <DropdownMenu
-                    title="System"
-                    links={navigationGroups.system}
-                    isOpen={isDropdownOpen === 'system'}
-                    onToggle={() => setIsDropdownOpen(isDropdownOpen === 'system' ? null : 'system')}
-                  />
-                </>
+                <DropdownMenu
+                  title="System"
+                  links={navigationGroups.system}
+                  isOpen={isDropdownOpen === 'system'}
+                  onToggle={() => setIsDropdownOpen(isDropdownOpen === 'system' ? null : 'system')}
+                />
               )}
 
               {/* Tools for Admin/Mentor */}
@@ -297,8 +303,8 @@ const Navigation = () => {
                   Profile
                 </NavLink>
 
-                {/* Management Submenu for Admin */}
-                {user?.role === 'admin' && (
+                {/* Management Submenu for Admin/Teachers */}
+                {['admin', 'principal', 'teacher'].includes(user?.role) && navigationGroups.management.filter(shouldShowLink).length > 0 && (
                   <MobileSubmenu
                     title="Manage"
                     links={navigationGroups.management}
@@ -309,7 +315,7 @@ const Navigation = () => {
                   />
                 )}
 
-                {/* System Submenu for Admin */}
+                {/* System Submenu for Admin only */}
                 {user?.role === 'admin' && (
                   <MobileSubmenu
                     title="System"

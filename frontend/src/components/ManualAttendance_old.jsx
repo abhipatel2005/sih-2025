@@ -34,7 +34,11 @@ const ManualAttendance = () => {
   const fetchUsers = async () => {
     setUsersLoading(true);
     try {
-      const response = await userAPI.getUsers({ status: 'active' });
+      // Use getStudents for teachers/principals to get school-filtered data
+      const response = user?.role === 'teacher' || user?.role === 'principal' 
+        ? await userAPI.getStudents({ status: 'active' })
+        : await userAPI.getUsers({ status: 'active' });
+        
       const activeUsers = response.data.users || response.data || [];
       setUsers(activeUsers);
       setFilteredUsers(activeUsers);

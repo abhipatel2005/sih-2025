@@ -21,6 +21,8 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'Token is not valid' });
     }
 
+    // Check if user is inactive (only if status field exists)
+    // Check if user is inactive (only if status field exists)
     if (user.status === 'inactive') {
       return res.status(401).json({ error: 'User account is inactive' });
     }
@@ -31,7 +33,7 @@ const authMiddleware = async (req, res, next) => {
       role: user.role,
       email: user.email,
       name: user.name,
-      status: user.status,
+      status: user.status || 'active', // Default to active if status is missing
       school_id: user.school_id
     };
 

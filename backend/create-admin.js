@@ -13,8 +13,22 @@ async function createAdminUser() {
     
     console.log('✅ Connected to Supabase successfully!');
     
+    // Get the first available school for admin association
+    const { data: schools, error: schoolError } = await supabase
+      .from('schools')
+      .select('school_id')
+      .limit(1);
+
+    if (schoolError || !schools || schools.length === 0) {
+      console.error('❌ No schools found. Please create a school first.');
+      return;
+    }
+
+    const school_id = schools[0].school_id;
+    console.log('🏫 Using school ID:', school_id);
+    
     // Check if admin user already exists
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@launchlog.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'testadmin@example.com';
     const existingAdmin = await User.findByEmail(adminEmail);
     
     if (existingAdmin) {
@@ -30,13 +44,13 @@ async function createAdminUser() {
     
     // Create admin user
     const adminUser = new User({
-      name: process.env.ADMIN_NAME || 'Admin User',
+      name: process.env.ADMIN_NAME || 'Test Admin',
       email: adminEmail,
-      password: process.env.ADMIN_PASSWORD || 'admin123456',
-      rfidTag: process.env.ADMIN_RFID || 'ADMIN001',
+      password: process.env.ADMIN_PASSWORD || 'admin123',
+      rfidTag: process.env.ADMIN_RFID || 'TESTADMIN999',
       role: 'admin',
-      status: 'active',
-      phone: '+1234567890'
+      phone: '+1234567890',
+      school_id: school_id
     });
     
     await adminUser.save();
@@ -45,7 +59,7 @@ async function createAdminUser() {
     console.log('==========================================');
     console.log('👤 Admin Login Credentials:');
     console.log(`   Email: ${adminUser.email}`);
-    console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'admin123456'}`);
+    console.log(`   Password: ${process.env.ADMIN_PASSWORD || 'admin123'}`);
     console.log(`   Role: ${adminUser.role}`);
     console.log(`   RFID: ${adminUser.rfid_tag}`);
     console.log('==========================================');
