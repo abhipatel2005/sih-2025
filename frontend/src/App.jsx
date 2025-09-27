@@ -122,6 +122,15 @@ function App() {
                 } 
               />
               
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <Analytics />
+                  </ProtectedRoute>
+                } 
+              />
+              
               {/* Default Redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               
