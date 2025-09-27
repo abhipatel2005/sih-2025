@@ -20,7 +20,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance
 const api = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -77,12 +77,20 @@ export const userAPI = {
   getUsers: (params) => 
     api.get('/users', { params }),
   
+  // Get students for teachers (teacher-specific endpoint)
+  getStudents: (params) => 
+    api.get('/users/students', { params }),
+  
   getUser: (id) => 
     api.get(`/users/${id}`),
   
   createUser: (userData) => 
     api.post('/users', userData),
   
+  // Create student for teachers (teacher-specific endpoint)
+  createStudent: (userData) => 
+    api.post('/users/students', userData),
+
   updateUser: (id, userData) => 
     api.put(`/users/${id}`, userData),
   
@@ -94,6 +102,9 @@ export const userAPI = {
   
   getUserStats: () => 
     api.get('/users/stats/summary'),
+    
+  getStudentStats: () => 
+    api.get('/users/students/stats'),
   
   // Member profile endpoints
   getMyProfile: () => 
@@ -106,16 +117,40 @@ export const userAPI = {
     api.get('/users/myAttendance', { params }),
 };
 
+// School management API calls
+export const schoolAPI = {
+  getSchools: (params) => 
+    api.get('/schools', { params }),
+  
+  getSchool: (id) => 
+    api.get(`/schools/${id}`),
+  
+  createSchool: (schoolData) => 
+    api.post('/schools', schoolData),
+  
+  updateSchool: (id, schoolData) => 
+    api.put(`/schools/${id}`, schoolData),
+  
+  deleteSchool: (id) => 
+    api.delete(`/schools/${id}`),
+  
+  getSchoolStats: (id, params) => 
+    api.get(`/schools/${id}/stats`, { params }),
+};
+
 // Attendance API calls
 export const attendanceAPI = {
   getTodayAttendance: () => 
-    api.get('/attendance/today'),
+    api.get('/attendance'),
   
   getMyAttendance: (params) => 
     api.get('/attendance/my', { params }),
   
   getAttendanceHistory: (params) => 
     api.get('/attendance/history', { params }),
+  
+  getAttendance: (params) => 
+    api.get('/attendance', { params }),
   
   getUserAttendance: (userId, params) => 
     api.get(`/attendance/user/${userId}`, { params }),
@@ -129,9 +164,9 @@ export const attendanceAPI = {
   recordAttendance: (rfidTag, timestamp) => 
     api.post('/attendance', { rfidTag, timestamp }),
 
-  // Manual attendance recording with type specification
-  recordManualAttendance: (userId, timestamp, type) => 
-    api.post('/attendance/manual', { userId, timestamp, type }),
+  // Manual attendance recording
+  recordManualAttendance: (userId, date, timestamp, status = 'present') => 
+    api.post('/attendance/manual', { userId, date, timestamp, status }),
 };
 
 // System API calls (utility endpoints)
@@ -176,9 +211,25 @@ export const auth = {
     return user?.role === 'admin';
   },
   
+  isTeacherOrAdmin: () => {
+    const user = auth.getUser();
+    return user?.role === 'admin' || user?.role === 'teacher';
+  },
+  
+  isPrincipalOrAdmin: () => {
+    const user = auth.getUser();
+    return user?.role === 'admin' || user?.role === 'principal';
+  },
+  
+  // Legacy method for backward compatibility
   isMentorOrAdmin: () => {
     const user = auth.getUser();
-    return user?.role === 'admin' || user?.role === 'mentor';
+    return user?.role === 'admin' || user?.role === 'teacher';
+  },
+  
+  getSchoolId: () => {
+    const user = auth.getUser();
+    return user?.school_id;
   },
 };
 

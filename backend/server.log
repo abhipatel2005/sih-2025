@@ -1,0 +1,14 @@
+
+> attendee-backend@1.0.0 start
+> node server.js
+
+[dotenv@17.2.1] injecting env (13) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.1] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+⏰ Scheduled tasks configured:
+  - Auto-cleanup: 10:00 PM IST daily
+  - Low attendance check: 11:00 PM IST daily
+🚀 Server running on port 3000
+📱 Health check: http://localhost:3000/health
+📋 API info: http://localhost:3000/
+🔐 Make sure to set JWT_SECRET in your .env file
+✅ Connected to Supabase

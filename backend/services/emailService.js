@@ -174,49 +174,6 @@ class EmailService {
     return await this.sendEmail(user.email, subject, html);
   }
 
-  async sendPasswordEmail(userEmail, userName, newPassword) {
-    const subject = 'Your New Password - Attendee System';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #28a745;">🔐 Password Reset - Attendee System</h2>
-        <p>Dear ${userName},</p>
-        <p>Your password has been reset as requested. Below is your new temporary password:</p>
-        
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; border: 2px dashed #007bff;">
-          <h3 style="margin: 0; color: #007bff;">Your New Password</h3>
-          <p style="font-size: 18px; font-weight: bold; color: #333; margin: 10px 0; font-family: 'Courier New', monospace; background-color: #fff; padding: 10px; border-radius: 3px;">${newPassword}</p>
-        </div>
-        
-        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
-          <p style="margin: 0; color: #856404;"><strong>⚠️ Important Security Notice:</strong></p>
-          <ul style="color: #856404; margin: 10px 0;">
-            <li>Please log in and change this password immediately</li>
-            <li>Do not share this password with anyone</li>
-            <li>This email contains sensitive information</li>
-          </ul>
-        </div>
-        
-        <p>To log in:</p>
-        <ol>
-          <li>Go to the Attendee System login page</li>
-          <li>Enter your email: <strong>${userEmail}</strong></li>
-          <li>Enter the new password provided above</li>
-          <li>Change your password immediately after logging in</li>
-        </ol>
-        
-        <p>If you did not request this password reset, please contact your administrator immediately.</p>
-        
-        <hr style="border: none; border-top: 1px solid #e9ecef; margin: 30px 0;">
-        <p style="font-size: 12px; color: #6c757d;">
-          This is an automated message from the Attendee System.<br>
-          Please do not reply to this email.
-        </p>
-      </div>
-    `;
-
-    return await this.sendEmail(userEmail, subject, html);
-  }
-
   htmlToText(html) {
     // Simple HTML to text conversion
     return html

@@ -1,6 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
-const { authMiddleware, adminMiddleware, adminOrMentorMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, adminOrMentorMiddleware, teacherOrPrincipalMiddleware } = require('../middleware/auth');
 const { supabase } = require('../config/supabase');
 
 const router = express.Router();
@@ -57,6 +57,49 @@ router.get('/', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
+// GET /users/students - List students for teachers (teacher access)
+router.get('/students', authMiddleware, teacherOrPrincipalMiddleware, async (req, res) => {
+  try {
+    const { page = 1, limit = 100, search } = req.query;
+    
+    let query = supabase
+      .from('users')
+      .select('id, name, email, rfid_tag, role, created_at, school_id')
+      .eq('role', 'student') // Only get students
+      .eq('school_id', req.user.school_id); // Filter by teacher's school
+    
+    // Apply search filter
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,rfid_tag.ilike.%${search}%`);
+    }
+
+    // Calculate pagination
+    const offset = (page - 1) * limit;
+    
+    // Get students with pagination
+    const { data: users, error: usersError, count } = await query
+      .order('name', { ascending: true })
+      .range(offset, offset + parseInt(limit) - 1)
+      .select('*', { count: 'exact' });
+
+    if (usersError) throw usersError;
+
+    res.json({
+      users: users || [],
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil((count || 0) / limit),
+        totalUsers: count || 0,
+        limit: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({ error: 'Server error while fetching students' });
+  }
+});
+
 // GET /me - Get current user's profile
 router.get('/me', authMiddleware, async (req, res) => {
   try {
@@ -76,7 +119,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 // PUT /me - Update current user's profile
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { email, phone, profile_picture, skills, bio, password } = req.body;
+    const { email, phone, profile_picture, address, category, gender, std, blood_group, dob, password } = req.body;
     
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -95,8 +138,12 @@ router.put('/me', authMiddleware, async (req, res) => {
     // Update allowed fields
     if (phone !== undefined) user.phone = phone;
     if (profile_picture !== undefined) user.profile_picture = profile_picture;
-    if (skills !== undefined) user.skills = skills;
-    if (bio !== undefined) user.bio = bio;
+    if (address !== undefined) user.address = address;
+    if (category !== undefined) user.category = category;
+    if (gender !== undefined) user.gender = gender;
+    if (std !== undefined) user.std = std;
+    if (blood_group !== undefined) user.blood_group = blood_group;
+    if (dob !== undefined) user.dob = dob;
     
     // Handle password update
     if (password) {
@@ -147,15 +194,116 @@ router.get('/:id', authMiddleware, adminOrMentorMiddleware, async (req, res) => 
   }
 });
 
-// POST /users - Create new user (admin only)
-router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
+// POST /users/students - Create new student (teacher/principal access)
+router.post('/students', authMiddleware, teacherOrPrincipalMiddleware, async (req, res) => {
   try {
-    const { name, rfidTag, email, password, phone, role = 'member' } = req.body;
+    const { 
+      name, 
+      rfidTag, 
+      email, 
+      password, 
+      phone,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id
+    } = req.body;
 
     // Validate required fields
     if (!name || !rfidTag || !email || !password) {
       return res.status(400).json({ 
         error: 'Missing required fields: name, rfidTag, email, password' 
+      });
+    }
+
+    // Force role to student for this endpoint
+    const role = 'student';
+
+    // Get school_id from the authenticated teacher/principal
+    const school_id = req.user.school_id;
+    if (!school_id) {
+      return res.status(400).json({ error: 'Teacher must be associated with a school' });
+    }
+
+    // Check if user already exists
+    const existingUserByEmail = await User.findByEmail(email);
+    if (existingUserByEmail) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    const existingUserByRfid = await User.findByRfidTag(rfidTag);
+    if (existingUserByRfid) {
+      return res.status(400).json({ error: 'User with this RFID tag already exists' });
+    }
+
+    // Create new student
+    const user = new User({
+      name,
+      rfid_tag: rfidTag,
+      email,
+      password,
+      phone,
+      role,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id,
+      status: null
+    });
+
+    await user.save();
+
+    res.status(201).json({
+      message: 'Student created successfully',
+      user: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Create student error:', error);
+    
+    if (error.code === '23505') { // Unique constraint violation
+      const detail = error.detail || '';
+      let field = 'field';
+      if (detail.includes('email')) field = 'email';
+      if (detail.includes('rfid_tag')) field = 'RFID tag';
+      return res.status(400).json({ error: `Duplicate ${field}` });
+    }
+    
+    res.status(500).json({ error: 'Server error during student creation' });
+  }
+});
+
+// POST /users - Create new user (admin only)
+router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { 
+      name, 
+      rfidTag, 
+      email, 
+      password, 
+      phone, 
+      role = 'student',
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !rfidTag || !email || !password || !school_id) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: name, rfidTag, email, password, school_id' 
       });
     }
 
@@ -171,8 +319,8 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     }
 
     // Validate role
-    if (!['member', 'admin', 'mentor'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be member, admin, or mentor' });
+    if (!['student', 'teacher', 'principal', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be student, teacher, principal, or admin' });
     }
 
     // Create new user
@@ -182,7 +330,16 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       email,
       password,
       phone,
-      role
+      role,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id,
+      status: null
     });
 
     await user.save();

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../config/SupaBaseClient';
+import { userAPI, attendanceAPI } from '../api';
 import { formatDateIST, formatTimeIST } from '../utils/dateUtils';
 
 const Profile = () => {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const { success, error: showError } = useToast();
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -14,131 +14,81 @@ const Profile = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
     phone: '',
     profilePicture: '',
+    skills: '',
+    bio: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    category: '',
+    gender: '',
+    std: '',
+    dob: '',
+    address: '',
+    bloodGroup: '',
+    aadharId: ''
   });
   const [errors, setErrors] = useState({});
 
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = async () => {
     try {
       setLoading(true);
-      
-      // Fetch admin user data directly from Supabase
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', 'admin@gmail.com')
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new Error('Admin user not found. Please ensure admin@gmail.com exists in the database.');
-        }
-        throw error;
-      }
-
-      // Transform data to match the expected format
-      const transformedData = {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone,
-        profilePicture: userData.profile_picture,
-        rfidTag: userData.rfid_tag,
-        role: userData.role,
-        status: userData.status,
-        joinedDate: userData.joined_date,
-        skills: userData.skills || [],
-        bio: userData.bio,
-        createdAt: userData.created_at,
-        updatedAt: userData.updated_at
-      };
-      
-      setProfile(transformedData);
+      const response = await userAPI.getMyProfile();
+      const userData = response.data.user;
+      setProfile(userData);
       
       // Initialize form data
       setFormData({
-        name: transformedData.name || '',
-        email: transformedData.email || '',
-        phone: transformedData.phone || '',
-        profilePicture: transformedData.profilePicture || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        profilePicture: userData.profilePicture || '',
+        skills: userData.skills ? userData.skills.join(', ') : '',
+        bio: userData.bio || '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        category: userData.category || '',
+        gender: userData.gender || '',
+        std: userData.std || '',
+        dob: userData.dob || '',
+        address: userData.address || '',
+        bloodGroup: userData.bloodGroup || userData.blood_group || '',
+        aadharId: userData.aadharId || userData.aadhar_id || ''
       });
       
     } catch (err) {
       console.error('Error fetching profile:', err);
-      showError(`Failed to load profile data: ${err.message}`);
+      showError('Failed to load profile data');
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  };
 
-  const fetchAttendanceHistory = useCallback(async (userId) => {
+  const fetchAttendanceHistory = async () => {
     try {
       setAttendanceLoading(true);
-      
-      // Get last 10 attendance records for the admin user
-      const { data: attendanceData, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        throw error;
-      }
-
-      // Transform data to match the expected format
-      const transformedAttendance = attendanceData.map(record => ({
-        _id: record.id,
-        id: record.id,
-        user_id: record.user_id,
-        date: record.date,
-        sessions: record.sessions || [],
-        entryTime: record.entry_time,
-        exitTime: record.exit_time,
-        timestamp: record.timestamp,
-        createdAt: record.created_at,
-        updatedAt: record.updated_at
-      }));
-
-      setAttendanceData(transformedAttendance);
+      // Get last 10 attendance records
+      const response = await attendanceAPI.getMyAttendance({ limit: 10 });
+      setAttendanceData(response.data.attendance || []);
     } catch (err) {
       console.error('Error fetching attendance history:', err);
-      showError(`Failed to load attendance history: ${err.message}`);
+      showError('Failed to load attendance history');
     } finally {
       setAttendanceLoading(false);
     }
-  }, [showError]);
+  };
 
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
-
-  // Fetch attendance when profile is loaded
-  useEffect(() => {
-    if (profile?.id) {
-      fetchAttendanceHistory(profile.id);
-    }
-  }, [profile?.id, fetchAttendanceHistory]);
+    fetchAttendanceHistory();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation
-    if (!formData.name || formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters long';
-    }
-
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email || !emailRegex.test(formData.email)) {
+    if (formData.email && !emailRegex.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -192,58 +142,29 @@ const Profile = () => {
     try {
       setUpdating(true);
       
-      // Prepare update data for Supabase (convert camelCase to snake_case)
+      // Prepare update data with correct field mapping
       const updateData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone ? formData.phone.trim() : null,
-        profile_picture: formData.profilePicture ? formData.profilePicture.trim() : '',
-        updated_at: new Date().toISOString()
+        email: formData.email,
+        phone: formData.phone,
+        profilePicture: formData.profilePicture,
+        skills: formData.skills ? formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill) : [],
+        bio: formData.bio,
+        category: formData.category,
+        gender: formData.gender,
+        std: formData.std,
+        dob: formData.dob,
+        address: formData.address,
+        blood_group: formData.bloodGroup,
+        aadhar_id: formData.aadharId
       };
 
-      // Add password if provided (Note: In production, you should hash passwords before storing)
-      if (formData.password && formData.password.trim()) {
-        updateData.password = formData.password.trim();
+      // Add password if provided
+      if (formData.password) {
+        updateData.password = formData.password;
       }
 
-      // Update the admin user in Supabase
-      const { data: updatedUserData, error } = await supabase
-        .from('users')
-        .update(updateData)
-        .eq('email', 'admin@gmail.com')
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new Error('Admin user not found during update. Please check if the user exists.');
-        }
-        if (error.code === '23505') {
-          throw new Error('Email address is already in use by another user.');
-        }
-        throw error;
-      }
-
-      if (!updatedUserData) {
-        throw new Error('Failed to update profile. No data returned.');
-      }
-
-      // Transform updated data back to expected format
-      const updatedProfile = {
-        id: updatedUserData.id,
-        name: updatedUserData.name,
-        email: updatedUserData.email,
-        phone: updatedUserData.phone,
-        profilePicture: updatedUserData.profile_picture,
-        rfidTag: updatedUserData.rfid_tag,
-        role: updatedUserData.role,
-        status: updatedUserData.status,
-        joinedDate: updatedUserData.joined_date,
-        skills: updatedUserData.skills || [],
-        bio: updatedUserData.bio,
-        createdAt: updatedUserData.created_at,
-        updatedAt: updatedUserData.updated_at
-      };
+      const response = await userAPI.updateMyProfile(updateData);
+      const updatedProfile = response.data.user;
       
       setProfile(updatedProfile);
       setIsEditing(false);
@@ -253,13 +174,9 @@ const Profile = () => {
         updateUser(updatedProfile);
       }
       
-      // Update form data with the new values and clear password fields
+      // Clear password fields
       setFormData(prev => ({
         ...prev,
-        name: updatedProfile.name || '',
-        email: updatedProfile.email || '',
-        phone: updatedProfile.phone || '',
-        profilePicture: updatedProfile.profilePicture || '',
         password: '',
         confirmPassword: ''
       }));
@@ -268,7 +185,7 @@ const Profile = () => {
       
     } catch (err) {
       console.error('Error updating profile:', err);
-      showError(err.message || err.details || 'Failed to update profile');
+      showError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setUpdating(false);
     }
@@ -280,12 +197,20 @@ const Profile = () => {
     
     // Reset form data to original profile values
     setFormData({
-      name: profile.name || '',
       email: profile.email || '',
       phone: profile.phone || '',
       profilePicture: profile.profilePicture || '',
+      skills: profile.skills ? profile.skills.join(', ') : '',
+      bio: profile.bio || '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      category: profile.category || '',
+      gender: profile.gender || '',
+      std: profile.std || '',
+      dob: profile.dob || '',
+      address: profile.address || '',
+      bloodGroup: profile.bloodGroup || profile.blood_group || '',
+      aadharId: profile.aadharId || profile.aadhar_id || ''
     });
   };
 
@@ -384,33 +309,6 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Basic Information */}
-            <div className="bg-white border border-gray-100 p-4 sm:p-6">
-              <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
-                Basic Information
-              </h2>
-              
-              <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                <div>
-                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
-                    required
-                    placeholder="Enter your full name"
-                  />
-                  {errors.name && (
-                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Contact Information */}
             <div className="bg-white border border-gray-100 p-4 sm:p-6">
               <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
@@ -450,6 +348,158 @@ const Profile = () => {
                   {errors.phone && (
                     <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
                   )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    name="dob"
+                    value={formData.dob}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Gender
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Category
+                  </label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="general">General</option>
+                    <option value="obc">OBC</option>
+                    <option value="sc">SC</option>
+                    <option value="st">ST</option>
+                    <option value="ews">EWS</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Blood Group
+                  </label>
+                  <select
+                    name="bloodGroup"
+                    value={formData.bloodGroup}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Class/Standard
+                  </label>
+                  <input
+                    type="text"
+                    name="std"
+                    value={formData.std}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="e.g., 10th, 12th"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Aadhar ID
+                  </label>
+                  <input
+                    type="text"
+                    name="aadharId"
+                    value={formData.aadharId}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="12-digit Aadhar number"
+                    maxLength="12"
+                    pattern="[0-9]{12}"
+                  />
+                </div>
+                
+                <div className="lg:col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Address
+                  </label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="Your address"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Professional Information */}
+            <div className="bg-white border border-gray-100 p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-medium text-black tracking-tight mb-4 sm:mb-6">
+                Professional Information
+              </h2>
+              
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Skills (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    name="skills"
+                    value={formData.skills}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="JavaScript, React, Node.js, MongoDB"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Bio
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors duration-200"
+                    placeholder="Tell us about yourself..."
+                  />
                 </div>
               </div>
             </div>
@@ -569,6 +619,102 @@ const Profile = () => {
                   </label>
                   <p className="text-sm text-black">{profile?.phone || 'Not provided'}</p>
                 </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Date of Birth
+                  </label>
+                  <p className="text-sm text-black">{profile?.dob ? formatDate(profile.dob) : 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Gender
+                  </label>
+                  <p className="text-sm text-black capitalize">{profile?.gender || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Category
+                  </label>
+                  <p className="text-sm text-black uppercase">{profile?.category || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Blood Group
+                  </label>
+                  <p className="text-sm text-black">{profile?.bloodGroup || profile?.blood_group || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Class/Standard
+                  </label>
+                  <p className="text-sm text-black">{profile?.std || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Aadhar ID
+                  </label>
+                  <p className="text-sm text-black font-mono">{profile?.aadharId || profile?.aadhar_id || 'Not provided'}</p>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Address
+                  </label>
+                  <p className="text-sm text-black">{profile?.address || 'Not provided'}</p>
+                </div>
+                
+                {profile?.school && (
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                      School
+                    </label>
+                    <p className="text-sm text-black">{profile.school.name}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Professional Information */}
+            <div className="bg-white border border-gray-100 p-6">
+              <h2 className="text-lg font-medium text-black tracking-tight mb-6">
+                Professional Information
+              </h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Skills
+                  </label>
+                  {profile?.skills && profile.skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {profile.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="bg-gray-100 text-gray-800 px-3 py-1 text-xs font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No skills added yet</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 tracking-wider uppercase mb-2">
+                    Bio
+                  </label>
+                  <p className="text-sm text-black whitespace-pre-wrap">
+                    {profile?.bio || 'No bio added yet'}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -632,10 +778,7 @@ const Profile = () => {
                           Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                          Entry Time
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                          Exit Time
+                          Time
                         </th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 tracking-wider uppercase">
                           Status
@@ -644,55 +787,40 @@ const Profile = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {attendanceData.map((record, index) => {
-                        // Handle both new session structure and legacy structure
-                        const sessions = record.sessions || [];
-                        const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-                        const hasExit = lastSession ? lastSession.exitTime : record.exitTime;
-                        const entryTime = lastSession ? lastSession.entryTime : (record.entryTime || record.timestamp);
+                        const status = record.status || 'present';
+                        
+                        // Helper function to get status badge color
+                        const getStatusBadgeColor = (status) => {
+                          switch (status?.toLowerCase()) {
+                            case 'present':
+                              return 'bg-green-100 text-green-800';
+                            case 'absent':
+                              return 'bg-red-100 text-red-800';
+                            case 'late':
+                              return 'bg-yellow-100 text-yellow-800';
+                            case 'excused':
+                              return 'bg-blue-100 text-blue-800';
+                            default:
+                              return 'bg-gray-100 text-gray-800';
+                          }
+                        };
                         
                         return (
-                          <tr key={record._id || record.id || index} className={`hover:bg-gray-50 transition-colors duration-200 ${hasExit ? 'bg-green-50/30' : ''}`}>
+                          <tr key={record._id || record.id || index} className="hover:bg-gray-50 transition-colors duration-200">
                             <td className="px-4 py-3 text-sm text-black">
-                              {formatDateIST(record.date || entryTime, {
+                              {formatDateIST(record.date, {
                                 year: 'numeric',
                                 month: 'short',
                                 day: 'numeric'
                               })}
                             </td>
                             <td className="px-4 py-3 text-sm text-black font-mono">
-                              {formatTimeIST(entryTime)}
-                              {sessions.length > 1 && (
-                                <span className="ml-2 text-xs text-gray-500">
-                                  +{sessions.length - 1} more
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm font-mono">
-                              {hasExit ? (
-                                <span className="text-black">
-                                  {formatTimeIST(hasExit)}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">Not yet logged</span>
-                              )}
+                              {record.timestamp ? formatTimeIST(record.timestamp) : 'N/A'}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              {hasExit ? (
-                                <div className="inline-flex items-center space-x-1">
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Complete
-                                  </span>
-                                  <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
-                                    <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  In Progress
-                                </span>
-                              )}
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadgeColor(status)}`}>
+                                {status}
+                              </span>
                             </td>
                           </tr>
                         );

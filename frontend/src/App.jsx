@@ -18,6 +18,7 @@ import Analytics from './components/AnalyticsWorking';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 import ForgotPassword from './components/ForgetPassword';
+import './App.css';
 
 function App() {
   return (
@@ -59,18 +60,9 @@ function App() {
               />
               
               <Route 
-                path="/analytics" 
-                element={
-                  <ProtectedRoute adminOnly={true}>
-                    <Analytics />
-                  </ProtectedRoute>
-                } 
-              />
-              
-              <Route 
                 path="/members" 
                 element={
-                  <ProtectedRoute adminOnly={true}>
+                  <ProtectedRoute teacherOrAdminOnly={true}>
                     <Members />
                   </ProtectedRoute>
                 } 
@@ -88,7 +80,7 @@ function App() {
               <Route 
                 path="/attendance/history" 
                 element={
-                  <ProtectedRoute mentorOrAdminOnly={true}>
+                  <ProtectedRoute teacherOrAdminOnly={true}>
                     <AttendanceHistory />
                   </ProtectedRoute>
                 } 
@@ -97,7 +89,7 @@ function App() {
               <Route 
                 path="/attendance/manual" 
                 element={
-                  <ProtectedRoute mentorOrAdminOnly={true}>
+                  <ProtectedRoute teacherOrAdminOnly={true}>
                     <ManualAttendance />
                   </ProtectedRoute>
                 } 
@@ -149,9 +141,6 @@ function App() {
                   </div>
                 } 
               />
-
-              {/* Forgot Password page */}
-              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Routes>
           </div>
         </ToastProvider>

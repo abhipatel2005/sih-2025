@@ -16,16 +16,16 @@
 
 // RFID RC522 Pins (SPI Interface)
 #define RFID_SS_PIN     15    // D8 - SPI SS (Slave Select)
-#define RFID_RST_PIN    0     // D3 - Reset pin (optional, can be -1 if not used)
+#define RFID_RST_PIN    -1     // D3 - Reset pin (optional, can be -1 if not used)
 
 // I2C Pins (LCD & RTC) - MOVED TO AVOID SPI CONFLICT
 #define SDA_PIN         4     // D2 - I2C SDA (was conflicting with MISO)
 #define SCL_PIN         5     // D1 - I2C SCL (was conflicting with MOSI)
 
 // LED and Buzzer Pins
-#define GREEN_LED       2    // D0 - Green LED
-#define RED_LED         16   // D4 - Red LED  
-#define BUZZER          0     // D3 - Buzzer (shared with RST_PIN, but different usage)
+#define GREEN_LED       2    // D4 - Green LED (GPIO2)
+#define RED_LED         0    // D3 - Red LED (GPIO0)
+#define BUZZER          16   // D0 - Buzzer (GPIO16)
 
 // ========================================
 // NOTE: EC11 Encoder pins have been ARCHIVED due to GPIO conflicts
@@ -60,12 +60,12 @@
 // ========================================
 
 // Default backend server URL (can be changed via configuration)
-// #define DEFAULT_BACKEND_URL "http://192.168.1.10:3000"
-#define DEFAULT_BACKEND_URL "https://api.xrocketry.in/"
+#define DEFAULT_BACKEND_URL "http://192.168.43.176:3000/"
+// #define DEFAULT_BACKEND_URL "https://api.xrocketry.in/"
 
 // WiFi Configuration Portal settings
 // Reduce portal timeout so device continues offline quickly when unattended
-#define WIFI_CONFIG_PORTAL_TIMEOUT 10   // seconds (skip config after 10s)
+#define WIFI_CONFIG_PORTAL_TIMEOUT 30   // seconds (skip config after 10s)
 #define WIFI_RECONNECT_TIMEOUT 30       // 30 seconds
 // Periodic reconnect to WiFi to try syncing offline logs
 #define WIFI_PERIODIC_RECONNECT_INTERVAL (2UL*60UL*60UL*1000UL) // 2 hours in ms

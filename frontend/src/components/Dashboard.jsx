@@ -13,7 +13,6 @@ const Dashboard = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [attendanceStats, setAttendanceStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSessions, setSelectedSessions] = useState({});
 
   // Get current month's first and last day
   const getCurrentMonthRange = () => {
@@ -27,22 +26,6 @@ const Dashboard = () => {
     };
   };
 
-  const getSelectedSession = (recordId, sessions) => {
-    const sessionIndex = selectedSessions[recordId];
-    // Default to last session (most recent) if no selection
-    if (sessionIndex === undefined) {
-      return sessions[sessions.length - 1];
-    }
-    return sessions[sessionIndex] || sessions[sessions.length - 1];
-  };
-
-  const handleSessionSelect = (recordId, sessionIndex) => {
-    setSelectedSessions(prev => ({
-      ...prev,
-      [recordId]: sessionIndex
-    }));
-  };
-
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
@@ -51,28 +34,76 @@ const Dashboard = () => {
       const profileResponse = await userAPI.getMyProfile();
       setProfile(profileResponse.data.user);
       
-      // Fetch recent attendance (last 5 records) using new endpoint
-      const recentAttendanceResponse = await attendanceAPI.getMyAttendance({ limit: 5 });
-      setAttendanceData(recentAttendanceResponse.data.attendance);
-      
-      // Fetch current month's attendance for statistics
       const { startDate, endDate } = getCurrentMonthRange();
-      const monthlyAttendanceResponse = await attendanceAPI.getMyAttendance({ 
-        startDate, 
-        endDate, 
-        limit: 100 // Get all records for the month
-      });
       
-      // Calculate attendance percentage (assuming 22 working days per month)
-      const attendanceDays = monthlyAttendanceResponse.data.attendance.length;
-      const workingDaysInMonth = 22; // Approximate working days
-      const attendancePercentage = Math.round((attendanceDays / workingDaysInMonth) * 100);
-      
-      setAttendanceStats({
-        attendanceDays,
-        workingDaysInMonth,
-        attendancePercentage: Math.min(attendancePercentage, 100) // Cap at 100%
-      });
+      // Different data fetching for admins vs regular users
+      if (user?.role === 'admin' || user?.role === 'principal') {
+        // For admins: Fetch system-wide attendance data
+        const recentAttendanceResponse = await attendanceAPI.getAttendanceHistory({ 
+          limit: 10,
+          sortBy: 'timestamp',
+          order: 'desc'
+        });
+        setAttendanceData(recentAttendanceResponse.data.attendance || []);
+        
+        // Get system-wide monthly statistics
+        const monthlyAttendanceResponse = await attendanceAPI.getAttendanceHistory({ 
+          startDate, 
+          endDate,
+          limit: 1000 // Get all records for the month
+        });
+        
+        const monthlyAttendance = monthlyAttendanceResponse.data.attendance || [];
+        
+        // Calculate system-wide statistics
+        const totalUsers = [...new Set(monthlyAttendance.map(record => record.userId))].length;
+        const presentRecords = monthlyAttendance.filter(record => 
+          record.status === 'present' || record.status === 'late'
+        );
+        const totalRecords = monthlyAttendance.length;
+        
+        // Calculate average attendance percentage across all users
+        const workingDaysInMonth = 22;
+        const avgAttendancePercentage = totalUsers > 0 
+          ? Math.round((presentRecords.length / (totalUsers * Math.min(workingDaysInMonth, totalRecords / totalUsers || 1))) * 100)
+          : 0;
+        
+        setAttendanceStats({
+          attendanceDays: presentRecords.length,
+          totalDays: totalRecords,
+          totalUsers,
+          workingDaysInMonth,
+          attendancePercentage: Math.min(avgAttendancePercentage, 100)
+        });
+        
+      } else {
+        // For regular users: Fetch personal attendance data
+        const recentAttendanceResponse = await attendanceAPI.getMyAttendance({ limit: 5 });
+        setAttendanceData(recentAttendanceResponse.data.attendance || []);
+        
+        const monthlyAttendanceResponse = await attendanceAPI.getMyAttendance({ 
+          startDate, 
+          endDate, 
+          limit: 100
+        });
+        
+        const monthlyAttendance = monthlyAttendanceResponse.data.attendance || [];
+        const attendanceDays = monthlyAttendance.filter(record => 
+          record.status === 'present' || record.status === 'late'
+        ).length;
+        const totalDays = monthlyAttendance.length;
+        const workingDaysInMonth = 22;
+        const attendancePercentage = totalDays > 0 
+          ? Math.round((attendanceDays / Math.min(totalDays, workingDaysInMonth)) * 100)
+          : 0;
+        
+        setAttendanceStats({
+          attendanceDays,
+          totalDays,
+          workingDaysInMonth,
+          attendancePercentage: Math.min(attendancePercentage, 100)
+        });
+      }
       
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -89,6 +120,20 @@ const Dashboard = () => {
   // Use utility functions for IST formatting
   const formatDate = (dateString) => formatDateIST(dateString);
   const formatTime = (dateString) => formatTimeIST(dateString);
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'admin': return 'text-red-600';
+      case 'principal': return 'text-purple-600';
+      case 'teacher': return 'text-blue-600';
+      case 'student': return 'text-green-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    return status === 'active' ? 'text-green-600' : 'text-gray-400';
+  };
 
   if (loading) {
     return (
@@ -143,40 +188,52 @@ const Dashboard = () => {
                 {attendanceStats?.attendancePercentage || 0}%
               </div>
               <p className="text-xs text-gray-400 tracking-wider uppercase">
-                This Month's Attendance
+                {(user?.role === 'admin' || user?.role === 'principal') ? 'System Attendance' : "This Month's Attendance"}
               </p>
               <p className="text-xs text-gray-500 mt-2">
-                {attendanceStats?.attendanceDays || 0} of {attendanceStats?.workingDaysInMonth || 22} days
+                {(user?.role === 'admin' || user?.role === 'principal') 
+                  ? `${attendanceStats?.totalUsers || 0} users tracked`
+                  : `${attendanceStats?.attendanceDays || 0} of ${attendanceStats?.workingDaysInMonth || 22} days`
+                }
               </p>
             </div>
           </div>
 
-          {/* Total Attendance Days */}
+          {/* Attendance Records */}
           <div className="bg-gray-50 border border-gray-100 rounded-none p-4 sm:p-6">
             <div className="text-center">
               <div className="text-2xl sm:text-3xl font-medium text-black mb-2">
                 {attendanceStats?.attendanceDays || 0}
               </div>
               <p className="text-xs text-gray-400 tracking-wider uppercase">
-                Days Present
+                {(user?.role === 'admin' || user?.role === 'principal') ? 'Present Records' : 'Days Present'}
               </p>
               <p className="text-xs text-gray-500 mt-2">
-                This month
+                {(user?.role === 'admin' || user?.role === 'principal') 
+                  ? 'This month system-wide'
+                  : 'This month'
+                }
               </p>
             </div>
           </div>
 
-          {/* Profile Completion */}
+          {/* Third Stat - Context Dependent */}
           <div className="bg-gray-50 border border-gray-100 rounded-none p-4 sm:p-6">
             <div className="text-center">
               <div className="text-2xl sm:text-3xl font-medium text-black mb-2">
-                {profile?.bio && profile?.skills?.length > 0 ? '100' : '50'}%
+                {(user?.role === 'admin' || user?.role === 'principal') 
+                  ? (attendanceStats?.totalDays || 0)
+                  : (profile?.bio && profile?.skills?.length > 0 ? '100' : '50')
+                }{(user?.role === 'admin' || user?.role === 'principal') ? '' : '%'}
               </div>
               <p className="text-xs text-gray-400 tracking-wider uppercase">
-                Profile Complete
+                {(user?.role === 'admin' || user?.role === 'principal') ? 'Total Records' : 'Profile Complete'}
               </p>
               <p className="text-xs text-gray-500 mt-2">
-                {profile?.bio && profile?.skills?.length > 0 ? 'All set!' : 'Add bio & skills'}
+                {(user?.role === 'admin' || user?.role === 'principal') 
+                  ? 'All attendance entries'
+                  : (profile?.bio && profile?.skills?.length > 0 ? 'All set!' : 'Add bio & skills')
+                }
               </p>
             </div>
           </div>
@@ -189,7 +246,7 @@ const Dashboard = () => {
               Recent Attendance
             </h2>
             <p className="text-xs text-gray-400 tracking-wider uppercase mt-1">
-              Last 5 check-ins
+              {(user?.role === 'admin' || user?.role === 'principal') ? 'Latest system records' : 'Last 5 check-ins'}
             </p>
           </div>
           
@@ -198,14 +255,16 @@ const Dashboard = () => {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
+                    {(user?.role === 'admin' || user?.role === 'principal') && (
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
+                        User
+                      </th>
+                    )}
                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
                       Date
                     </th>
                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                      Entry Time
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-400 tracking-wider uppercase">
-                      Exit Time
+                      Time
                     </th>
                     <th className="px-4 sm:px-6 py-3 sm:py-4 text-center text-xs font-medium text-gray-400 tracking-wider uppercase">
                       Status
@@ -214,62 +273,45 @@ const Dashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {attendanceData.map((record, index) => {
-                    // Handle both new session structure and legacy structure  
-                    const sessions = record.sessions || [];
-                    const sessionCount = sessions.length;
-                    const selectedSession = getSelectedSession(record._id || record.id, sessions);
-                    const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
-                    const hasExit = selectedSession ? selectedSession.exitTime : (lastSession ? lastSession.exitTime : record.exitTime);
-                    const entryTime = selectedSession ? selectedSession.entryTime : (lastSession ? lastSession.entryTime : (record.entryTime || record.timestamp));
-                    const isCurrentlyInside = record.isCurrentlyInside || (!hasExit && entryTime);
+                    const getStatusColor = (status) => {
+                      switch (status?.toLowerCase()) {
+                        case 'present':
+                          return 'bg-green-100 text-green-800';
+                        case 'absent':
+                          return 'bg-red-100 text-red-800';
+                        case 'late':
+                          return 'bg-yellow-100 text-yellow-800';
+                        case 'excused':
+                          return 'bg-blue-100 text-blue-800';
+                        default:
+                          return 'bg-gray-100 text-gray-800';
+                      }
+                    };
+
+                    // Handle different data structures for admin vs user
+                    const recordUser = record.users || record.user || {};
+                    const userName = recordUser.name || record.userName || 'Unknown User';
                     
                     return (
-                      <tr key={record._id || record.id || index} className={`hover:bg-gray-50 transition-colors duration-200 ${hasExit ? 'bg-green-50/30' : ''}`}>
+                      <tr key={record.id || index} className="hover:bg-gray-50 transition-colors duration-200">
+                        {(user?.role === 'admin' || user?.role === 'principal') && (
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-black">
+                            <div>
+                              <div className="font-medium">{userName}</div>
+                              <div className="text-xs text-gray-500 capitalize">{recordUser.role || 'N/A'}</div>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-black">
-                          {formatDate(record.date || entryTime)}
+                          {formatDate(record.date)}
                         </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-black font-mono">
-                          <div className="flex items-center justify-between">
-                            <span>{formatTime(entryTime)}</span>
-                            {sessionCount > 1 && (
-                              <select
-                                value={selectedSessions[record._id || record.id] ?? (sessionCount - 1)}
-                                onChange={(e) => handleSessionSelect(record._id || record.id, parseInt(e.target.value))}
-                                className="ml-2 text-xs bg-blue-100 text-blue-800 border-0 rounded px-1 py-0.5 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              >
-                                {sessions.map((_, sessionIndex) => (
-                                  <option key={sessionIndex} value={sessionIndex}>
-                                    {sessionIndex + 1}
-                                  </option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm font-mono">
-                          {hasExit ? (
-                            <span className="text-black">{formatTime(hasExit)}</span>
-                          ) : (
-                            <span className="text-gray-400">Not yet logged</span>
-                          )}
+                          {record.timestamp ? formatTime(record.timestamp) : 'N/A'}
                         </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
-                          {hasExit ? (
-                            <div className="inline-flex items-center space-x-1">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Complete
-                              </span>
-                              <div className="w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
-                                <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              In Progress
-                            </span>
-                          )}
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(record.status)}`}>
+                            {record.status || 'present'}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -287,7 +329,10 @@ const Dashboard = () => {
                   No attendance records found
                 </p>
                 <p className="text-xs text-gray-500 mt-2">
-                  Your attendance history will appear here
+                  {(user?.role === 'admin' || user?.role === 'principal') 
+                    ? 'System attendance records will appear here'
+                    : 'Your attendance history will appear here'
+                  }
                 </p>
               </div>
             )}
@@ -302,12 +347,31 @@ const Dashboard = () => {
           >
             View Profile
           </button>
-          {(user?.role === 'admin' || user?.role === 'mentor') && (
+          
+          {(user?.role === 'admin' || user?.role === 'principal' || user?.role === 'teacher') && (
             <button
               onClick={() => navigate('/attendance/history')}
               className="flex-1 border border-gray-300 text-black px-4 sm:px-6 py-3 text-xs tracking-wider uppercase font-medium hover:bg-gray-50 transition-colors duration-200"
             >
-              View Full History
+              {(user?.role === 'admin' || user?.role === 'principal') ? 'System Attendance' : 'View Full History'}
+            </button>
+          )}
+          
+          {user?.role === 'teacher' && (
+            <button
+              onClick={() => navigate('/attendance/manual')}
+              className="flex-1 border border-gray-300 text-black px-4 sm:px-6 py-3 text-xs tracking-wider uppercase font-medium hover:bg-gray-50 transition-colors duration-200"
+            >
+              Manual Entry
+            </button>
+          )}
+          
+          {(user?.role === 'admin' || user?.role === 'principal') && (
+            <button
+              onClick={() => navigate('/members')}
+              className="flex-1 border border-gray-300 text-black px-4 sm:px-6 py-3 text-xs tracking-wider uppercase font-medium hover:bg-gray-50 transition-colors duration-200"
+            >
+              Manage Users
             </button>
           )}
         </div>

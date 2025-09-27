@@ -4,7 +4,7 @@ CREATE TABLE users (
   name VARCHAR NOT NULL,
   rfid_tag VARCHAR UNIQUE NOT NULL,
   role VARCHAR DEFAULT 'member' CHECK (role IN ('teacher', 'admin', 'student', 'principal')),
-  status VARCHAR DEFAULT 'active' CHECK (status IN ('present', 'absent', 'late')),
+  status VARCHAR DEFAULT '' CHECK (status IN ('present', 'absent', 'late', '')),
   email VARCHAR UNIQUE NOT NULL,
   phone VARCHAR,
   category VARCHAR,
@@ -31,6 +31,14 @@ CREATE TABLE attendance (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+--Schools table
+create table schools (
+  school_id uuid primary key default gen_random_uuid(),
+  name text not null,
+  district text not null,
+  state text not null
+);
+
 
 -- Create indexes for better performance
 CREATE INDEX idx_attendance_user_date ON attendance(user_id, date DESC);
@@ -51,10 +59,3 @@ $$ language 'plpgsql';
 -- Apply trigger to tables
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_attendance_updated_at BEFORE UPDATE ON attendance FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-create table schools (
-  school_id uuid primary key default gen_random_uuid(),
-  name text not null,
-  district text not null,
-  state text not null
-);

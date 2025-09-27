@@ -17,12 +17,27 @@ const generateToken = (userId, role) => {
 // POST /auth/register - Register a new user (admin only)
 router.post('/register', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { name, rfidTag, email, password, phone, role = 'member' } = req.body;
+    const { 
+      name, 
+      rfidTag, 
+      email, 
+      password, 
+      phone, 
+      role = 'student',
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id
+    } = req.body;
 
     // Validate required fields
-    if (!name || !rfidTag || !email || !password) {
+    if (!name || !rfidTag || !email || !password || !school_id) {
       return res.status(400).json({ 
-        error: 'Missing required fields: name, rfidTag, email, password' 
+        error: 'Missing required fields: name, rfidTag, email, password, school_id' 
       });
     }
 
@@ -38,8 +53,8 @@ router.post('/register', authMiddleware, adminMiddleware, async (req, res) => {
     }
 
     // Validate role
-    if (!['member', 'admin', 'mentor'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be member, admin, or mentor' });
+    if (!['student', 'teacher', 'principal', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be student, teacher, principal, or admin' });
     }
 
     // Create new user
@@ -49,7 +64,16 @@ router.post('/register', authMiddleware, adminMiddleware, async (req, res) => {
       email,
       password,
       phone,
-      role
+      role,
+      category,
+      gender,
+      std,
+      dob,
+      address,
+      blood_group,
+      aadhar_id,
+      school_id,
+      status: null
     });
 
     await user.save();
@@ -91,10 +115,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Check if user is active
-    if (user.status === 'inactive') {
-      return res.status(401).json({ error: 'Account is inactive. Please contact an administrator.' });
-    }
+    // Check if user is active (disabled until status column is added to DB)
+    // if (user.status === 'inactive') {
+    //   return res.status(401).json({ error: 'Account is inactive. Please contact an administrator.' });
+    // }
 
     // Check password
     const isPasswordValid = await user.comparePassword(password);
