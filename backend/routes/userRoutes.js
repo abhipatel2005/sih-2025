@@ -549,4 +549,33 @@ router.get('/stats/summary', authMiddleware, adminOrMentorMiddleware, async (req
   }
 });
 
+// GET /users/students/stats - Get student statistics for teachers (teacher/principal access)
+router.get('/students/stats', authMiddleware, teacherOrPrincipalMiddleware, async (req, res) => {
+  try {
+    // Get all students from teacher's school
+    const { data: students, error: studentsError } = await supabase
+      .from('users')
+      .select('status')
+      .eq('role', 'student')
+      .eq('school_id', req.user.school_id);
+
+    if (studentsError) throw studentsError;
+
+    const activeUsers = students.filter(s => s.status === 'active').length;
+    const inactiveUsers = students.filter(s => s.status === 'inactive' || !s.status).length;
+
+    const stats = {
+      totalUsers: students.length,
+      activeUsers,
+      inactiveUsers
+    };
+
+    res.json(stats);
+
+  } catch (error) {
+    console.error('Get student stats error:', error);
+    res.status(500).json({ error: 'Server error while fetching student statistics' });
+  }
+});
+
 module.exports = router;
