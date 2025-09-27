@@ -1,0 +1,73 @@
+name: Remote Deploy Digital Hajri
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Save current commit
+        run: echo $(git rev-parse --short HEAD) > /tmp/last_deploy_commit.txt
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Deploy Backend
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            cd /home/ubuntu/prodapps/sih-2025/backend &&
+            git fetch origin &&
+            git reset --hard origin/main &&
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi &&
+            pm2 restart digitalhajribackend || pm2 start npm --name digitalhajribackend -- start
+          "
+
+      - name: Deploy Frontend
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            cd /home/ubuntu/prodapps/sih-2025/frontend &&
+            git fetch origin &&
+            git reset --hard origin/main &&
+            if [ -f package-lock.json ]; then
+              npm ci
+            else
+              npm install
+            fi &&
+            npm run build
+          "
+
+      - name: Sync Frontend Build to Web Directory
+        run: |
+          rsync -avz --delete -e "ssh -o StrictHostKeyChecking=no" \
+          /home/ubuntu/prodapps/sih-2025/frontend/dist/ \
+          ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/digitalhajri/
+
+      - name: Reload Nginx
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            sudo nginx -t &&
+            sudo systemctl reload nginx
+          "
+
+      - name: Deployment Complete
+        run: echo "Deployment complete! Deployed commit: $(cat /tmp/last_deploy_commit.txt)"
