@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes_updated');
 const schoolRoutes = require('./routes/schoolRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 // Import models
 const User = require('./models/User');
@@ -20,7 +21,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  'https://digitalhajri.site',
+  'https://api.digitalhajri.site'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Test Supabase connection
@@ -42,6 +58,7 @@ testSupabaseConnection();
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/attendance', attendanceRoutes);
+app.use('/analytics', analyticsRoutes);
 app.use('/schools', schoolRoutes);
 
 // Health check endpoint

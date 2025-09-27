@@ -27,13 +27,14 @@ const Navigation = () => {
   const navigationGroups = {
     primary: [
       { to: '/dashboard', label: 'Dashboard' },
-      { to: '/attendance', label: 'Attendance', adminOnly: true }
+      { to: '/attendance', label: 'Attendance', adminOnly: true },
+      { to: '/analytics', label: 'Analytics', adminOnly: true }
     ],
     management: [
       { 
         to: '/members', 
-        label: user?.role === 'admin' ? 'Members' : 'Students', 
-        teacherAccess: true 
+        label: user?.role === 'teacher' || user?.role === 'principal' ? 'Students' : 'Members',
+        teacherOrAdminOnly: true 
       },
       { to: '/signup', label: 'Add User', adminOnly: true }
     ],
@@ -49,6 +50,7 @@ const Navigation = () => {
 
   const shouldShowLink = (link) => {
     if (link.adminOnly && user?.role !== 'admin') return false;
+    if (link.teacherOrAdminOnly && !['admin', 'teacher', 'principal'].includes(user?.role)) return false;
     if (link.adminOrMentor && !['admin', 'principal', 'teacher'].includes(user?.role)) return false;
     if (link.teacherAccess && !['admin', 'principal', 'teacher'].includes(user?.role)) return false;
     return true;

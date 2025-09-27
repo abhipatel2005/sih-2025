@@ -14,7 +14,10 @@ import UserDetail from './components/UserDetail';
 import Signup from './components/Signup';
 import SystemStatus from './components/SystemStatus';
 import DeviceAdmin from './components/DeviceAdmin';
+import Analytics from './components/AnalyticsWorking';
 import ProtectedRoute from './components/ProtectedRoute';
+import './App.css';
+import ForgotPassword from './components/ForgetPassword';
 import './App.css';
 
 function App() {
@@ -115,6 +118,15 @@ function App() {
                 element={
                   <ProtectedRoute adminOnly={true}>
                     <DeviceAdmin />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <Analytics />
                   </ProtectedRoute>
                 } 
               />

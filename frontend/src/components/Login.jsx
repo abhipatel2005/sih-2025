@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
@@ -100,6 +100,16 @@ const Login = () => {
             </button>
           </div>
         </form>
+
+        {/* Forgot Password Link */}
+        <div className="mt-6 text-center">
+          <Link
+            to="/forgot-password"
+            className="text-xs text-gray-500 hover:text-black transition-colors duration-200"
+          >
+            Forgot your password?
+          </Link>
+        </div>
 
         {/* Default Credentials Info */}
         {/* <div className="mt-16 p-6 bg-gray-50 border border-gray-100">

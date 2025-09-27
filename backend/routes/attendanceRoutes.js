@@ -33,6 +33,8 @@ function parseISTTimestamp(timestamp) {
   console.log('  Input (IST):', timestamp);
   console.log('  With IST timezone:', istTimestampWithTimezone);
   console.log('  Stored in database as:', date.toISOString());
+  console.log('  Will be stored as:', istTimestampWithTimezone);
+  console.log(date);
   
   return date; 
 }
