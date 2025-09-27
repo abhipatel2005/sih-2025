@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes_updated');
 const schoolRoutes = require('./routes/schoolRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 
 // Import models
 const User = require('./models/User');
