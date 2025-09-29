@@ -211,17 +211,28 @@ router.post('/forgot-password', async (req, res) => {
       return res.json({ message: 'If an account with this email exists, you will receive a password shortly.' });
     }
 
-    // Generate a new temporary password
-    const crypto = require('crypto');
-    const newPassword = crypto.randomBytes(4).toString('hex').toUpperCase(); // 8 character password
+    // Generate a simple, readable temporary password
+    const simplePassword = `pass${Math.floor(1000 + Math.random() * 9000)}`; // Format: pass1234
     
-    // Update user password
-    user.password = newPassword;
-    await user.save();
+    // Hash the new password before saving
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash(simplePassword, 12);
+    
+    // Update user password directly in database
+    const { supabase } = require('../config/supabase');
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password: hashedPassword })
+      .eq('id', user.id);
+      
+    if (updateError) {
+      console.error('Failed to update password:', updateError);
+      return res.status(500).json({ error: 'Failed to update password' });
+    }
 
-    // Send password email
+    // Send password email with the plain text password (not the hashed one)
     const emailService = require('../services/emailService');
-    const emailResult = await emailService.sendPasswordEmail(user.email, user.name, newPassword);
+    const emailResult = await emailService.sendPasswordEmail(user.email, user.name, simplePassword);
 
     if (emailResult.success) {
       console.log(`Password reset email sent to: ${user.email}`);

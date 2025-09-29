@@ -23,7 +23,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 const allowedOrigins = [
   'https://digitalhajri.site',
-  'https://api.digitalhajri.site'
+  'https://api.digitalhajri.site',
+  'http://localhost:3000',
+  'http://localhost:5173',
 ];
 
 app.use(cors({

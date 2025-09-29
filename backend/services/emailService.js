@@ -1,41 +1,95 @@
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
 
 class EmailService {
   constructor() {
     this.transporter = null;
     this.isConfigured = false;
     this.adminEmails = [];
+    this.oauth2Client = null;
     this.setupTransporter();
   }
 
-  setupTransporter() {
+  async setupTransporter() {
     try {
-      // Check for email configuration in environment variables
-      const emailConfig = {
-        service: process.env.EMAIL_SERVICE || 'gmail',
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT || 587,
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      };
-
       // Admin emails for notifications
       this.adminEmails = process.env.ADMIN_EMAILS ? 
         process.env.ADMIN_EMAILS.split(',').map(email => email.trim()) : 
         [];
 
-      if (emailConfig.auth.user && emailConfig.auth.pass) {
-        this.transporter = nodemailer.createTransporter(emailConfig);
+      // Check if OAuth2 credentials are available
+      if (process.env.GOOGLE_CLIENT_ID && 
+          process.env.GOOGLE_CLIENT_SECRET && 
+          process.env.GOOGLE_REFRESH_TOKEN && 
+          process.env.EMAIL_USER) {
+        
+        await this.setupGoogleOAuth2();
+        
+      } else if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        // Fallback to traditional authentication
+        console.log('⚠️ Using traditional email authentication (consider switching to OAuth2)');
+        const emailConfig = {
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        };
+        
+        this.transporter = nodemailer.createTransport(emailConfig);
         this.isConfigured = true;
-        console.log('✅ Email service configured successfully');
+        console.log('✅ Email service configured with traditional auth');
+        
       } else {
-        console.log('⚠️ Email service not configured - missing EMAIL_USER or EMAIL_PASS');
+        console.log('⚠️ Email service not configured - missing OAuth2 or traditional auth credentials');
+        console.log('📝 For OAuth2, provide: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, EMAIL_USER');
+        console.log('📝 For traditional auth, provide: EMAIL_USER, EMAIL_PASS');
       }
     } catch (error) {
       console.error('❌ Email service setup failed:', error.message);
+    }
+  }
+
+  async setupGoogleOAuth2() {
+    try {
+      // Create OAuth2 client
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground' // Redirect URI
+      );
+
+      // Set refresh token
+      this.oauth2Client.setCredentials({
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+      });
+
+      // Get access token
+      const accessToken = await this.oauth2Client.getAccessToken();
+
+      // Create nodemailer transporter with OAuth2
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: process.env.EMAIL_USER,
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
+          accessToken: accessToken.token,
+        },
+      });
+
+      this.isConfigured = true;
+      console.log('✅ Email service configured successfully with Google OAuth2');
+      
+      // Verify the configuration
+      await this.transporter.verify();
+      console.log('✅ Email service verified successfully');
+      
+    } catch (error) {
+      console.error('❌ Google OAuth2 setup failed:', error.message);
+      throw error;
     }
   }
 
@@ -172,6 +226,46 @@ class EmailService {
     `;
 
     return await this.sendEmail(user.email, subject, html);
+  }
+
+  async sendPasswordEmail(userEmail, userName, newPassword) {
+    const subject = `Your Login Password - Attendee System`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">🔐 Your Login Password</h2>
+        <p>Hello ${userName},</p>
+        <p>As requested, here is your login password for the Attendee System.</p>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">Your Password</h3>
+          <p style="font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; color: #1f2937; margin: 0; letter-spacing: 2px;">
+            ${newPassword}
+          </p>
+        </div>
+        
+        <p><strong>Important Notes:</strong></p>
+        <ul style="color: #6b7280;">
+          <li>Use this password to log into your account</li>
+          <li>For security, consider changing this password after logging in</li>
+          <li>Keep this password secure and don't share it with anyone</li>
+        </ul>
+        
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #92400e; font-size: 14px;">
+            <strong>⚠️ Security Reminder:</strong> If you did not request this password, 
+            please contact your system administrator immediately.
+          </p>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+        <p style="font-size: 12px; color: #9ca3af;">
+          This is an automated message from the Attendee System.<br>
+          Please do not reply to this email. For support, contact your system administrator.
+        </p>
+      </div>
+    `;
+
+    return await this.sendEmail(userEmail, subject, html);
   }
 
   htmlToText(html) {
