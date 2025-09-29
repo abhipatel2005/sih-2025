@@ -7,12 +7,21 @@ import {
   ClockIcon,
   ArrowTrendingUpIcon,
   FunnelIcon,
-  CheckIcon
+  CheckIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 // Professional chart components with proper X-Y axes - Fully Responsive
-const ProfessionalBarChart = ({ data }) => {
+const ProfessionalBarChart = ({ data, chartLabels }) => {
   if (!data || data.length === 0) return <div className="text-gray-500 text-center py-8">No data available</div>;
+  
+  // Provide default labels if not passed
+  const defaultLabels = {
+    xLabel: 'Categories',
+    yLabel: 'Count',
+    legendText: 'data grouped by category'
+  };
+  const labels = chartLabels || defaultLabels;
   
   const maxValue = Math.max(...data.map(d => d.value));
   const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4'];
@@ -175,7 +184,7 @@ const ProfessionalBarChart = ({ data }) => {
             textAnchor="middle" 
             className={`fill-gray-800 ${isMobile ? 'text-xs' : 'text-sm'} font-semibold`}
           >
-            Districts
+            {labels.xLabel}
           </text>
           
           <text 
@@ -185,14 +194,14 @@ const ProfessionalBarChart = ({ data }) => {
             className={`fill-gray-800 ${isMobile ? 'text-xs' : 'text-sm'} font-semibold`}
             transform={`rotate(-90, ${isMobile ? "15" : "25"}, ${isMobile ? "140" : isTablet ? "155" : "175"})`}
           >
-            {isMobile ? "Count" : "Attendance Count"}
+            {isMobile ? "Count" : labels.yLabel}
           </text>
         </svg>
         
         {/* Legend */}
         <div className="mt-4 text-center">
           <div className="text-sm text-gray-600">
-            Showing attendance records grouped by district
+            Showing {labels.legendText}
           </div>
         </div>
       </div>
@@ -206,7 +215,83 @@ const ProfessionalPieChart = ({ data }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4'];
   
-  // Calculate angles for each slice
+  // Handle single data point case - create a full circle
+  if (data.length === 1) {
+    const singleSlice = {
+      ...data[0],
+      percentage: 100,
+      startAngle: 0,
+      endAngle: 360,
+      color: colors[0]
+    };
+    
+    // Create a full circle for single data point
+    const createFullCircle = () => {
+      const radius = 80;
+      const centerX = 100;
+      const centerY = 100;
+      
+      return (
+        <circle
+          cx={centerX}
+          cy={centerY}
+          r={radius}
+          fill={singleSlice.color}
+          stroke="white"
+          strokeWidth="2"
+          className="hover:opacity-80 transition-opacity duration-200"
+        />
+      );
+    };
+    
+    // Responsive design
+    const isMobile = window.innerWidth < 640;
+    const isTablet = window.innerWidth < 1024;
+    
+    return (
+      <div className="p-3 sm:p-6">
+        <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Pie Chart Distribution</h3>
+        <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-8">
+          {/* Centered Full Circle */}
+          <div className="flex justify-center items-center flex-shrink-0">
+            <div className="relative">
+              <svg 
+                width={isMobile ? "160" : isTablet ? "200" : "240"} 
+                height={isMobile ? "160" : isTablet ? "200" : "240"} 
+                viewBox="0 0 200 200" 
+                className="drop-shadow-lg mx-auto"
+                style={{ display: 'block' }}
+              >
+                {createFullCircle()}
+              </svg>
+            </div>
+          </div>
+          {/* Legend */}
+          <div className={`${isMobile ? 'w-full max-w-xs' : 'flex-1 min-w-0'}`}>
+            <div className={`space-y-2 ${isMobile ? 'space-y-2' : 'space-y-3'}`}>
+              <div className={`flex items-center justify-between ${isMobile ? 'text-xs' : ''}`}>
+                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                  <div
+                    className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
+                    style={{ backgroundColor: singleSlice.color }}
+                  ></div>
+                  <span className={`font-medium text-gray-900 ${isMobile ? 'text-xs' : ''} truncate`}>
+                    {isMobile && singleSlice.name.length > 12 ? singleSlice.name.substring(0, 12) + '...' : singleSlice.name}
+                  </span>
+                </div>
+                <div className="text-right flex-shrink-0 ml-2">
+                  <div className={`font-bold text-gray-900 ${isMobile ? 'text-xs' : ''}`}>{singleSlice.value}</div>
+                  <div className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-sm'}`}>100.0%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Calculate angles for each slice (multiple data points)
   let currentAngle = 0;
   const slices = data.map((item, index) => {
     const percentage = (item.value / total) * 100;
@@ -321,9 +406,85 @@ const ProfessionalLineChart = ({ data }) => {
   const chartWidth = isMobile ? 280 : isTablet ? 350 : 400;
   const chartHeight = isMobile ? 120 : isTablet ? 140 : 160;
   
-  // Create SVG line chart with responsive points
+  // Handle single data point case
+  if (data.length === 1) {
+    const singlePoint = data[0];
+    const centerX = chartWidth / 2;
+    const centerY = chartHeight / 2;
+    
+    return (
+      <div className="p-3 sm:p-6">
+        <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Line Chart Trend</h3>
+        <div className="relative overflow-x-auto">
+          <svg 
+            width="100%" 
+            height={isMobile ? "160" : isTablet ? "180" : "200"} 
+            viewBox={`0 0 ${chartWidth + 40} ${chartHeight + 40}`} 
+            className="border border-gray-200 rounded bg-gray-50"
+            style={{ minWidth: isMobile ? '300px' : '350px' }}
+          >
+            {/* Grid lines */}
+            {[0, 1, 2, 3, 4].map(i => (
+              <line
+                key={`grid-${i}`}
+                x1="20"
+                y1={20 + i * (chartHeight / 4)}
+                x2={chartWidth + 20}
+                y2={20 + i * (chartHeight / 4)}
+                stroke="#E5E7EB"
+                strokeWidth="1"
+              />
+            ))}
+            
+            {/* Y-axis */}
+            <line x1="20" y1="20" x2="20" y2={chartHeight + 20} stroke="#374151" strokeWidth="2"/>
+            
+            {/* X-axis */}
+            <line x1="20" y1={chartHeight + 20} x2={chartWidth + 20} y2={chartHeight + 20} stroke="#374151" strokeWidth="2"/>
+            
+            {/* Single data point - show as a prominent circle */}
+            <circle
+              cx={centerX + 20}
+              cy={centerY + 20}
+              r={isMobile ? "8" : "10"}
+              fill="#3B82F6"
+              stroke="white"
+              strokeWidth="3"
+              className="hover:opacity-80 transition-all duration-200"
+            >
+              <title>{singlePoint.name}: {singlePoint.value}</title>
+            </circle>
+            
+            {/* Horizontal line from center point to show trend */}
+            <line
+              x1={centerX - 50}
+              y1={centerY + 20}
+              x2={centerX + 50}
+              y2={centerY + 20}
+              stroke="#3B82F6"
+              strokeWidth={isMobile ? "2" : "3"}
+              strokeLinecap="round"
+              opacity="0.5"
+            />
+          </svg>
+          
+          {/* Label for single data point */}
+          <div className="flex justify-center mt-2 px-2 sm:px-5">
+            <div className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 text-center flex flex-col items-center`}>
+              <span className="font-medium">
+                {isMobile && singlePoint.name.length > 6 ? singlePoint.name.substring(0, 6) + '...' : singlePoint.name}
+              </span>
+              <span className={`font-bold text-blue-600 ${isMobile ? 'text-[10px]' : ''}`}>{singlePoint.value}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Create SVG line chart with responsive points for multiple data points
   const points = data.map((item, index) => {
-    const x = (index / (data.length - 1)) * chartWidth;
+    const x = data.length > 1 ? (index / (data.length - 1)) * chartWidth : chartWidth / 2;
     const y = chartHeight - ((item.value - minValue) / range) * (chartHeight - 40);
     return `${x},${y}`;
   }).join(' ');
@@ -362,7 +523,12 @@ const ProfessionalLineChart = ({ data }) => {
           <polyline
             points={points.split(' ').map(point => {
               const [x, y] = point.split(',');
-              return `${parseFloat(x) + 20},${parseFloat(y) + 20}`;
+              const xVal = parseFloat(x);
+              const yVal = parseFloat(y);
+              // Check for NaN values and provide fallback
+              const safeX = isNaN(xVal) ? chartWidth / 2 : xVal;
+              const safeY = isNaN(yVal) ? chartHeight / 2 : yVal;
+              return `${safeX + 20},${safeY + 20}`;
             }).join(' ')}
             fill="none"
             stroke="#3B82F6"
@@ -373,13 +539,16 @@ const ProfessionalLineChart = ({ data }) => {
           
           {/* Data points */}
           {data.map((item, index) => {
-            const x = (index / (data.length - 1)) * chartWidth + 20;
+            const x = data.length > 1 ? (index / (data.length - 1)) * chartWidth + 20 : chartWidth / 2 + 20;
             const y = chartHeight + 20 - ((item.value - minValue) / range) * (chartHeight - 40);
+            // Check for NaN values
+            const safeX = isNaN(x) ? chartWidth / 2 + 20 : x;
+            const safeY = isNaN(y) ? chartHeight / 2 + 20 : y;
             return (
               <circle
                 key={index}
-                cx={x}
-                cy={y}
+                cx={safeX}
+                cy={safeY}
                 r={isMobile ? "3" : "4"}
                 fill="#3B82F6"
                 stroke="white"
@@ -422,6 +591,7 @@ const AnalyticsWorking = () => {
   // Store unique values for dynamic filters
   const [availableDistricts, setAvailableDistricts] = useState([]);
   const [availableStatuses, setAvailableStatuses] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
   const [analyticsData, setAnalyticsData] = useState({
     stats: {
       totalSchools: 0,
@@ -433,12 +603,76 @@ const AnalyticsWorking = () => {
     }
   });
 
+  // Determine chart labels based on active filters
+  const getChartLabels = () => {
+    // Check which filters are active
+    const isDistrictActive = selectedFilters.district && Object.values(selectedFilters.district).some(v => v);
+    const isStatusActive = selectedFilters.status && Object.values(selectedFilters.status).some(v => v);
+    const isRoleActive = selectedFilters.role && Object.values(selectedFilters.role).some(v => v);
+    
+    if (isDistrictActive) {
+      return { xLabel: 'Districts', yLabel: 'Attendance Count', legendText: 'attendance records grouped by district' };
+    } else if (isStatusActive) {
+      return { xLabel: 'Status', yLabel: 'Status Count', legendText: 'records grouped by status' };
+    } else if (isRoleActive) {
+      return { xLabel: 'Roles', yLabel: 'User Count', legendText: 'users grouped by role' };
+    } else {
+      return { xLabel: 'Districts', yLabel: 'Attendance Count', legendText: 'attendance records grouped by district' };
+    }
+  };
+
+  const chartLabels = getChartLabels();
+
   useEffect(() => {
     fetchAnalyticsData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Data is loaded, ready for filtering when user clicks apply
+
+  // Helper function to fetch all records from a table using pagination
+  const fetchAllRecords = async (tableName) => {
+    console.log(`Starting to fetch all records from ${tableName} table...`);
+    let allData = [];
+    let from = 0;
+    const batchSize = 1000;
+    let hasMore = true;
+    let batchCount = 0;
+
+    while (hasMore) {
+      batchCount++;
+      console.log(`Fetching batch ${batchCount} for ${tableName}: records ${from} to ${from + batchSize - 1}`);
+      
+      const { data, error, count } = await supabase
+        .from(tableName)
+        .select('*', { count: 'exact' })
+        .range(from, from + batchSize - 1);
+      
+      if (error) {
+        console.error(`Error fetching batch ${batchCount} from ${tableName}:`, error);
+        throw error;
+      }
+      
+      console.log(`Batch ${batchCount} for ${tableName}: received ${data?.length || 0} records, total count: ${count}`);
+      
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        from += batchSize;
+        
+        // If we got less than batchSize records, we've reached the end
+        if (data.length < batchSize) {
+          console.log(`Reached end of ${tableName} table. Final batch had ${data.length} records.`);
+          hasMore = false;
+        }
+      } else {
+        console.log(`No more data for ${tableName} table.`);
+        hasMore = false;
+      }
+    }
+    
+    console.log(`✅ Completed fetching ${tableName}: ${allData.length} total records in ${batchCount} batches`);
+    return allData;
+  };
 
   const fetchAnalyticsData = async () => {
     try {
@@ -467,43 +701,38 @@ const AnalyticsWorking = () => {
         console.log('Backend API not available, using direct Supabase connection');
       }
 
-      // Fallback to direct Supabase calls - use schema from schools_schema.sql
-      const { data: schoolsData, error: schoolsError } = await supabase
-        .from('schools')
-        .select('*'); // Use * to get all available columns
+      // Fallback to direct Supabase calls - use pagination to fetch all records
+      console.log('🔄 Fetching all data using pagination...');
+      
+      let schoolsData, usersData, attendanceData;
+      
+      try {
+        console.log('📊 Starting data fetch process...');
+        schoolsData = await fetchAllRecords('schools');
+        usersData = await fetchAllRecords('users');  
+        attendanceData = await fetchAllRecords('attendance');
 
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('*'); // Use * to get all available columns
-
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
-        .select('*'); // Use * to get all available columns
-
-      if (schoolsError || usersError || attendanceError) {
-        console.error('Error fetching analytics data:', { 
-          schoolsError,
-          usersError, 
-          attendanceError
+        console.log('✅ Successfully fetched ALL data:', { 
+          users: usersData?.length || 0, 
+          schools: schoolsData?.length || 0, 
+          attendance: attendanceData?.length || 0 
         });
         
-        // Show helpful error messages
-        if (schoolsError) {
-          console.error('Schools table error:', schoolsError.message);
-          console.log('Make sure schools table exists with schema from schools_schema.sql');
+        // Verify we actually got different amounts than 1000
+        if (usersData?.length === 1000) {
+          console.warn('⚠️ Users data is exactly 1000 - might be hitting a limit');
         }
-        if (usersError) {
-          console.error('Users table error:', usersError.message);
-          console.log('Using .select("*") to get all available fields');
+        if (attendanceData?.length === 1000) {
+          console.warn('⚠️ Attendance data is exactly 1000 - might be hitting a limit');
         }
-        
+
+      } catch (error) {
+        console.error('Error fetching data with pagination:', error);
         setAnalyticsData(getFallbackAnalytics());
         setRawData({ users: [], schools: [], attendance: [] });
         setFilteredData([]);
         return;
       }
-
-      console.log('Successfully fetched data:', { usersData, schoolsData, attendanceData });
 
       // Store raw data for filtering  
       const processedRawData = {
@@ -517,11 +746,13 @@ const AnalyticsWorking = () => {
       // Extract unique values for dynamic filters
       const uniqueDistricts = [...new Set((schoolsData || []).map(school => school.district).filter(Boolean))];
       const uniqueStatuses = [...new Set((attendanceData || []).map(record => record.status).filter(Boolean))];
+      const uniqueRoles = [...new Set((usersData || []).map(user => user.role).filter(Boolean))];
       
       setAvailableDistricts(uniqueDistricts);
       setAvailableStatuses(uniqueStatuses);
+      setAvailableRoles(uniqueRoles);
       
-      console.log('Available filter values:', { uniqueDistricts, uniqueStatuses });
+      console.log('Available filter values:', { uniqueDistricts, uniqueStatuses, uniqueRoles });
 
       // Calculate basic statistics
       const stats = calculateBasicStats(usersData || [], schoolsData || [], attendanceData || []);
@@ -593,51 +824,71 @@ const AnalyticsWorking = () => {
       attendance: rawData.attendance?.length 
     });
     
-    let filteredUsers = rawData.users || [];
-    let filteredSchools = rawData.schools || [];
-    let filteredAttendance = rawData.attendance || [];
+    // Get selected filter values
+    const selectedDistricts = selectedFilters.district 
+      ? Object.entries(selectedFilters.district)
+          .filter(([, isSelected]) => isSelected)
+          .map(([district]) => district)
+      : [];
     
-    // Apply district filter to schools
-    if (selectedFilters.district) {
-      const selectedDistricts = Object.entries(selectedFilters.district)
-        .filter(([, isSelected]) => isSelected)
-        .map(([district]) => district);
+    const selectedStatuses = selectedFilters.status 
+      ? Object.entries(selectedFilters.status)
+          .filter(([, isSelected]) => isSelected)
+          .map(([status]) => status)
+      : [];
+    
+    const selectedRoles = selectedFilters.role 
+      ? Object.entries(selectedFilters.role)
+          .filter(([, isSelected]) => isSelected)
+          .map(([role]) => role)
+      : [];
+
+    // Helper function to check if user matches all selected filters
+    const userMatchesFilters = (user) => {
+      // Check role filter
+      if (selectedRoles.length > 0 && !selectedRoles.includes(user.role)) {
+        return false;
+      }
       
+      // Check district filter by joining with school data
       if (selectedDistricts.length > 0) {
-        filteredSchools = rawData.schools.filter(school => 
-          selectedDistricts.includes(school.district)
-        );
-        console.log('Filtered schools by district:', filteredSchools.length);
+        const userSchool = rawData.schools.find(school => school.school_id === user.school_id);
+        if (!userSchool || !selectedDistricts.includes(userSchool.district)) {
+          return false;
+        }
       }
-    }
-    
-    // Apply status filter to attendance
-    if (selectedFilters.status) {
-      const selectedStatuses = Object.entries(selectedFilters.status)
-        .filter(([, isSelected]) => isSelected)
-        .map(([status]) => status);
       
-      if (selectedStatuses.length > 0) {
-        filteredAttendance = rawData.attendance.filter(record => 
-          selectedStatuses.includes(record.status)
-        );
-        console.log('Filtered attendance by status:', filteredAttendance.length);
+      return true;
+    };
+
+    // Helper function to check if attendance record matches filters
+    const attendanceMatchesFilters = (attendanceRecord) => {
+      // Check status filter
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(attendanceRecord.status)) {
+        return false;
       }
-    }
-    
-    // Apply role filter to users
-    if (selectedFilters.role) {
-      const selectedRoles = Object.entries(selectedFilters.role)
-        .filter(([, isSelected]) => isSelected)
-        .map(([role]) => role);
       
-      if (selectedRoles.length > 0) {
-        filteredUsers = rawData.users.filter(user => 
-          selectedRoles.includes(user.role)
-        );
-        console.log('Filtered users by role:', filteredUsers.length);
-      }
-    }
+      // Check if the user associated with this attendance record matches filters
+      const user = rawData.users.find(u => u.id === attendanceRecord.user_id);
+      if (!user) return false;
+      
+      return userMatchesFilters(user);
+    };
+
+    // Apply combined filters
+    const filteredUsers = rawData.users.filter(userMatchesFilters);
+    const filteredAttendance = rawData.attendance.filter(attendanceMatchesFilters);
+    
+    // Get schools that match district filter (if any)
+    const filteredSchools = selectedDistricts.length > 0 
+      ? rawData.schools.filter(school => selectedDistricts.includes(school.district))
+      : rawData.schools;
+    
+    console.log('Filtered results:', {
+      users: filteredUsers.length,
+      schools: filteredSchools.length,
+      attendance: filteredAttendance.length
+    });
     
     // Calculate analytics with filtered data
     const updatedAnalytics = {
@@ -650,24 +901,136 @@ const AnalyticsWorking = () => {
     // Create chart data based on what filters are active
     const processedData = [];
     
-    // If district filter is active, group attendance by districts
-    if (selectedFilters.district && Object.values(selectedFilters.district).some(v => v)) {
-      // Create district-attendance mapping by joining schools and users data
-      const districtAttendanceCounts = {};
+    // Determine what to group by based on active filters
+    // Handle combinations with all three filters first
+    if (selectedDistricts.length > 0 && selectedRoles.length > 0 && selectedStatuses.length > 0) {
+      // All three filters active - show attendance records with all conditions
+      const combinedCounts = {};
       
-      // Initialize counts for filtered districts
-      filteredSchools.forEach(school => {
-        districtAttendanceCounts[school.district] = 0;
+      selectedDistricts.forEach(district => {
+        selectedRoles.forEach(role => {
+          const key = `${role} in ${district}`;
+          combinedCounts[key] = 0;
+        });
       });
       
-      // Count attendance records per district
+      filteredAttendance.forEach(record => {
+        const user = rawData.users.find(u => u.id === record.user_id);
+        if (user) {
+          const school = rawData.schools.find(s => s.school_id === user.school_id);
+          if (school && 
+              selectedDistricts.includes(school.district) && 
+              selectedRoles.includes(user.role) && 
+              selectedStatuses.includes(record.status)) {
+            const key = `${user.role} in ${school.district}`;
+            combinedCounts[key]++;
+          }
+        }
+      });
+      
+      Object.entries(combinedCounts).forEach(([name, count]) => {
+        const statusText = selectedStatuses.length === 1 ? selectedStatuses[0] : 'attendance';
+        processedData.push({
+          name: `${statusText}: ${name}`,
+          value: count,
+          count,
+          type: 'combined_all_filters'
+        });
+      });
+    }
+    // Handle combinations with two filters
+    else if (selectedDistricts.length > 0 && selectedRoles.length > 0) {
+      // District + Role filters - show count of users with selected roles in selected districts
+      const combinedCounts = {};
+      
+      selectedDistricts.forEach(district => {
+        combinedCounts[district] = 0;
+      });
+      
+      filteredUsers.forEach(user => {
+        const school = rawData.schools.find(s => s.school_id === user.school_id);
+        if (school && selectedDistricts.includes(school.district) && selectedRoles.includes(user.role)) {
+          combinedCounts[school.district]++;
+        }
+      });
+      
+      Object.entries(combinedCounts).forEach(([district, count]) => {
+        const roleText = selectedRoles.length === 1 ? selectedRoles[0] : 'users';
+        processedData.push({
+          name: `${roleText} in ${district}`,
+          value: count,
+          count,
+          type: 'combined_role_district'
+        });
+      });
+    }
+    else if (selectedDistricts.length > 0 && selectedStatuses.length > 0) {
+      // District + Status filters - show attendance with selected status in selected districts
+      const combinedCounts = {};
+      
+      selectedDistricts.forEach(district => {
+        combinedCounts[district] = 0;
+      });
+      
+      filteredAttendance.forEach(record => {
+        const user = rawData.users.find(u => u.id === record.user_id);
+        if (user) {
+          const school = rawData.schools.find(s => s.school_id === user.school_id);
+          if (school && selectedDistricts.includes(school.district) && selectedStatuses.includes(record.status)) {
+            combinedCounts[school.district]++;
+          }
+        }
+      });
+      
+      Object.entries(combinedCounts).forEach(([district, count]) => {
+        const statusText = selectedStatuses.length === 1 ? selectedStatuses[0] : 'attendance';
+        processedData.push({
+          name: `${statusText} in ${district}`,
+          value: count,
+          count,
+          type: 'combined_status_district'
+        });
+      });
+    }
+    else if (selectedRoles.length > 0 && selectedStatuses.length > 0) {
+      // Role + Status filters - show attendance records of users with selected roles and status
+      const combinedCounts = {};
+      
+      selectedRoles.forEach(role => {
+        combinedCounts[role] = 0;
+      });
+      
+      filteredAttendance.forEach(record => {
+        const user = rawData.users.find(u => u.id === record.user_id);
+        if (user && selectedRoles.includes(user.role) && selectedStatuses.includes(record.status)) {
+          combinedCounts[user.role]++;
+        }
+      });
+      
+      Object.entries(combinedCounts).forEach(([role, count]) => {
+        const statusText = selectedStatuses.length === 1 ? selectedStatuses[0] : 'attendance';
+        processedData.push({
+          name: `${statusText} for ${role}`,
+          value: count,
+          count,
+          type: 'combined_role_status'
+        });
+      });
+    }
+    // Handle single filter cases
+    else if (selectedDistricts.length > 0) {
+      // Only district filter active - show attendance count by district
+      const districtAttendanceCounts = {};
+      
+      selectedDistricts.forEach(district => {
+        districtAttendanceCounts[district] = 0;
+      });
+      
       filteredAttendance.forEach(attendanceRecord => {
-        // Find the user for this attendance record
         const user = rawData.users.find(u => u.id === attendanceRecord.user_id);
         if (user) {
-          // Find the school for this user
           const school = rawData.schools.find(s => s.school_id === user.school_id);
-          if (school && school.district in districtAttendanceCounts) {
+          if (school && selectedDistricts.includes(school.district)) {
             districtAttendanceCounts[school.district]++;
           }
         }
@@ -682,50 +1045,62 @@ const AnalyticsWorking = () => {
         });
       });
     }
-    // If status filter is active, group by status
-    else if (selectedFilters.status && Object.values(selectedFilters.status).some(v => v)) {
-      const statusCounts = filteredAttendance.reduce((acc, record) => {
-        acc[record.status] = (acc[record.status] || 0) + 1;
-        return acc;
-      }, {});
+    else if (selectedRoles.length > 0) {
+      // Only role filter active - show user count by role
+      const roleCounts = {};
       
-      Object.entries(statusCounts).forEach(([status, count]) => {
-        processedData.push({
-          name: status,
-          value: count,
-          count
-        });
+      selectedRoles.forEach(role => {
+        roleCounts[role] = 0;
       });
-    }
-    // If role filter is active, group by roles
-    else if (selectedFilters.role && Object.values(selectedFilters.role).some(v => v)) {
-      const roleCounts = filteredUsers.reduce((acc, user) => {
-        const role = user.role || 'Unknown';
-        acc[role] = (acc[role] || 0) + 1;
-        return acc;
-      }, {});
+      
+      filteredUsers.forEach(user => {
+        if (selectedRoles.includes(user.role)) {
+          roleCounts[user.role]++;
+        }
+      });
       
       Object.entries(roleCounts).forEach(([role, count]) => {
         processedData.push({
           name: role,
           value: count,
-          count
+          count,
+          type: 'users_by_role'
         });
       });
     }
-    // Default: show district-wise attendance data (most relevant for X-Y axis chart)
+    else if (selectedStatuses.length > 0) {
+      // Only status filter active - show attendance count by status
+      const statusCounts = {};
+      
+      selectedStatuses.forEach(status => {
+        statusCounts[status] = 0;
+      });
+      
+      filteredAttendance.forEach(record => {
+        if (selectedStatuses.includes(record.status)) {
+          statusCounts[record.status]++;
+        }
+      });
+      
+      Object.entries(statusCounts).forEach(([status, count]) => {
+        processedData.push({
+          name: status,
+          value: count,
+          count,
+          type: 'attendance_by_status'
+        });
+      });
+    }
+    // Default: show district-wise attendance data (most relevant for charts)
     else if (rawData.schools.length > 0 && rawData.attendance.length > 0) {
-      // Create district-attendance mapping for all districts
       const districtAttendanceCounts = {};
       
-      // Initialize counts for all districts
       rawData.schools.forEach(school => {
         if (!districtAttendanceCounts[school.district]) {
           districtAttendanceCounts[school.district] = 0;
         }
       });
       
-      // Count attendance records per district
       rawData.attendance.forEach(attendanceRecord => {
         const user = rawData.users.find(u => u.id === attendanceRecord.user_id);
         if (user) {
@@ -745,7 +1120,7 @@ const AnalyticsWorking = () => {
         });
       });
     }
-    // Fallback: show user roles if no district/attendance data
+    // Fallback: show user roles if no other data
     else if (filteredUsers.length > 0) {
       const roleCounts = filteredUsers.reduce((acc, user) => {
         const role = user.role || 'Unknown';
@@ -769,8 +1144,30 @@ const AnalyticsWorking = () => {
     console.log('Chart data:', processedData);
   };
 
-
-
+  const clearFilters = () => {
+    console.log('Clearing all filters');
+    
+    // Reset all filter states
+    setSelectedFilters({
+      district: {},
+      status: {},
+      role: {}
+    });
+    
+    // Clear filtered data and analytics
+    setFilteredData([]);
+    setAnalyticsData({
+      stats: {
+        totalUsers: rawData?.users?.length || 0,
+        totalSchools: rawData?.schools?.length || 0,
+        totalAttendance: rawData?.attendance?.length || 0,
+        presentCount: rawData?.attendance?.filter(record => record.status === 'present')?.length || 0
+      },
+      chartData: []
+    });
+    
+    console.log('All filters cleared');
+  };
 
   const StatCard = ({ title, value, subtitle, IconComponent, trend }) => (
     <div className="bg-white border border-gray-100 p-3 sm:p-4 lg:p-6 hover:shadow-lg transition-shadow duration-200">
@@ -861,11 +1258,11 @@ const AnalyticsWorking = () => {
 
               {/* Filter Categories */}
               <div className="space-y-4 sm:space-y-6">
-                {/* Role Filter */}
+                {/* Role Filter - Dynamic from users table */}
                 <div>
                   <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Role</h3>
                   <div className="space-y-1.5 sm:space-y-2">
-                    {['member', 'admin', 'mentor'].map((role) => (
+                    {availableRoles.map((role) => (
                       <label key={role} className="flex items-center">
                         <input
                           type="checkbox"
@@ -877,6 +1274,9 @@ const AnalyticsWorking = () => {
                       </label>
                     ))}
                   </div>
+                  {availableRoles.length === 0 && (
+                    <p className="text-xs text-gray-500">No role data available</p>
+                  )}
                 </div>
 
                 {/* Status Filter - Dynamic from attendance table */}
@@ -929,6 +1329,16 @@ const AnalyticsWorking = () => {
                   <CheckIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                   <span className="hidden sm:inline">Apply Filters & Show Chart</span>
                   <span className="sm:hidden">Apply Filters</span>
+                </button>
+                
+                {/* Clear Filters Button */}
+                <button
+                  onClick={clearFilters}
+                  className="w-full bg-gray-100 text-gray-700 py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center rounded-sm mt-2"
+                >
+                  <XMarkIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
+                  <span className="hidden sm:inline">Clear All Filters</span>
+                  <span className="sm:hidden">Clear Filters</span>
                 </button>
                 
                 {/* Filter Status */}
@@ -998,7 +1408,7 @@ const AnalyticsWorking = () => {
               {/* Dynamic Chart Rendering - Professional Visual Charts */}
               {filteredData && filteredData.length > 0 ? (
                 <div className="bg-white rounded-lg border border-gray-200 min-h-[450px] shadow-sm">
-                  {selectedChartType === 'bar' && <ProfessionalBarChart data={filteredData} />}
+                  {selectedChartType === 'bar' && <ProfessionalBarChart data={filteredData} chartLabels={chartLabels} />}
                   {selectedChartType === 'pie' && <ProfessionalPieChart data={filteredData} />}
                   {selectedChartType === 'line' && <ProfessionalLineChart data={filteredData} />}
                 </div>

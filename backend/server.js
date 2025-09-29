@@ -26,6 +26,16 @@ const allowedOrigins = [
   'https://api.digitalhajri.site'
 ];
 
+// Add localhost origins for development
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push(
+    'http://localhost:5173',  // Vite dev server
+    'http://localhost:3000',  // Local development
+    'http://127.0.0.1:5173',  // Alternative localhost
+    'http://127.0.0.1:3000'   // Alternative localhost
+  );
+}
+
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
